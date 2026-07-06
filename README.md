@@ -3,6 +3,13 @@
 Free invoice, quote and receipt generator. No signup, no backend, no running costs.
 All data lives in the user's browser (localStorage). Static site — three core files.
 
+Features: live A4 preview, 3 layouts (classic/minimal/letterhead), 4 document
+languages (EN/FR/DE/ES), per-line VAT with rate breakdown, discounts, deposits
+with balance due, multiple business profiles, client book, saved documents with
+statuses, quote→invoice conversion, custom numbering (prefix + next number),
+share-by-link (document encoded in the URL, no server), JSON backup, CSV export,
+dark mode, installable PWA that works offline.
+
 ## Stack
 
 - `index.html` — app + SEO landing content + FAQ (with schema.org markup)
@@ -64,4 +71,10 @@ service worker just won't register on `file://`.)
 
 - Print/PDF verified with headless Chrome (`--print-to-pdf`): one A4 page, colours print.
 - Mobile CSS is scoped `@media screen` — print must never inherit mobile hiding rules.
+- Print block uses `!important` on sheet shadow/background — dark-mode selectors
+  otherwise outspecify it and print the drop shadow.
 - When changing cached assets, bump `CACHE` version in `sw.js`.
+- `?demo` loads sample data, disables all persistence; `&layout=` and `&lang=`
+  work with it for screenshots/print tests.
+- Share links: `#d=<base64url JSON>` with the document + a business-info snapshot
+  (logo excluded — too big for URLs). Recipient sees a view-only banner.

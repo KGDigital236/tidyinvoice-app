@@ -3,8 +3,13 @@
 :root {
   --accent: #1e6f50;
   --accent-ink: #14503a;
+  --accent-soft: #e8f2ec;
   --paper: #f3efe6;
   --panel: #fbf9f4;
+  --card: #ffffff;
+  --field-bg: #ffffff;
+  --btn-hover-bg: #f1ecdf;
+  --btn-hover-border: #cfc7b2;
   --ink: #22271f;
   --ink-soft: #5c6357;
   --line: #ddd6c6;
@@ -14,6 +19,30 @@
   --shadow: 0 1px 2px rgba(34,39,31,.06), 0 8px 28px rgba(34,39,31,.09);
   --font: "Segoe UI", system-ui, -apple-system, sans-serif;
 }
+
+/* dark mode — editor chrome only; the document sheet stays paper-white */
+body[data-ui="dark"] {
+  --accent-ink: #58b58d;
+  --accent-soft: #1e2c24;
+  --paper: #151814;
+  --panel: #1c201b;
+  --card: #232823;
+  --field-bg: #1a1e19;
+  --btn-hover-bg: #2a3029;
+  --btn-hover-border: #3d443a;
+  --ink: #e7e5db;
+  --ink-soft: #9aa192;
+  --line: #343a30;
+  --line-soft: #2a2f27;
+  --danger: #e0705c;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.45);
+}
+body[data-ui="dark"] .inline-note { background: var(--accent-soft); border-color: #2c4636; color: #9fd4b4; }
+body[data-ui="dark"] .hi-status.draft { background: #2a2f27; color: #9aa192; }
+body[data-ui="dark"] .hi-status.sent { background: #1d2b38; color: #7db3dc; }
+body[data-ui="dark"] .hi-status.paid { background: #1e2c24; color: #8cc9a6; }
+body[data-ui="dark"] .swatch.is-on { box-shadow: inset 0 0 0 2px var(--panel); }
+body[data-ui="dark"] .sheet { box-shadow: 0 2px 6px rgba(0,0,0,.5), 0 12px 40px rgba(0,0,0,.5); }
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -81,7 +110,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--in
   font-weight: 600;
   transition: background .15s, border-color .15s;
 }
-.btn:hover { background: #f1ecdf; border-color: #cfc7b2; }
+.btn:hover { background: var(--btn-hover-bg); border-color: var(--btn-hover-border); }
 .btn.primary {
   background: var(--accent);
   border-color: var(--accent);
@@ -127,7 +156,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--in
 .ed-group {
   border: 1px solid var(--line-soft);
   border-radius: var(--radius);
-  background: #fff;
+  background: var(--card);
   margin-bottom: 10px;
   overflow: hidden;
 }
@@ -168,7 +197,8 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--in
   border: 1px solid var(--line);
   border-radius: 7px;
   padding: 8px 10px;
-  background: #fff;
+  background: var(--field-bg);
+  color: var(--ink);
   width: 100%;
 }
 .field textarea { resize: vertical; }
@@ -181,7 +211,41 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--in
 
 .joined { display: flex; gap: 0; }
 .joined input { border-radius: 7px 0 0 7px; border-right: 0; flex: 1; }
-.joined select { border: 1px solid var(--line); border-radius: 0 7px 7px 0; padding: 8px; background: #fff; }
+.joined select { border: 1px solid var(--line); border-radius: 0 7px 7px 0; padding: 8px; background: var(--field-bg); color: var(--ink); }
+
+.layout-btns { display: flex; gap: 6px; padding-top: 2px; }
+.layout-btns button {
+  border: 1px solid var(--line);
+  background: var(--field-bg);
+  border-radius: 7px;
+  padding: 7px 9px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  flex: 1;
+}
+.layout-btns button.is-on {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+}
+.layout-btns button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.shared-banner {
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  font-size: 13.5px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--ink);
+}
+.shared-banner .hi-actions { display: flex; gap: 6px; }
 
 .swatches { display: flex; gap: 7px; padding-top: 5px; }
 .swatch {
@@ -228,7 +292,8 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--in
   border-radius: 7px;
   padding: 8px 9px;
   width: 100%;
-  background: #fff;
+  background: var(--field-bg);
+  color: var(--ink);
 }
 .item-row input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .item-row .num { text-align: right; }
@@ -396,6 +461,42 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--in
 }
 .s-madewith { font-size: 11px; opacity: .75; }
 
+/* ============ Sheet layout variants ============ */
+/* Minimal — thin rules, airy, no filled header */
+.sheet[data-layout="minimal"] .s-items th {
+  background: transparent;
+  color: var(--accent-ink);
+  border-bottom: 2px solid var(--accent);
+  padding: 8px 12px 6px;
+}
+.sheet[data-layout="minimal"] .s-items tbody tr:nth-child(even) td { background: transparent; }
+.sheet[data-layout="minimal"] .s-doctitle {
+  font-weight: 600;
+  letter-spacing: .3em;
+  font-size: 24px;
+  margin-top: 4px;
+}
+.sheet[data-layout="minimal"] .s-paid-stamp { border-width: 2px; font-size: 22px; }
+.sheet[data-layout="minimal"] .s-foot { border-top-color: transparent; }
+
+/* Letterhead — centred header, double rule */
+.sheet[data-layout="letterhead"] .s-head {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  border-bottom: 4px double var(--accent);
+  padding-bottom: 20px;
+}
+.sheet[data-layout="letterhead"] .s-brandcol { display: flex; flex-direction: column; align-items: center; }
+.sheet[data-layout="letterhead"] .s-logo { margin: 0 auto 10px; }
+.sheet[data-layout="letterhead"] .s-bizname { font-size: 24px; }
+.sheet[data-layout="letterhead"] .s-doccol { text-align: center; margin-top: 16px; }
+.sheet[data-layout="letterhead"] .s-doctitle { margin-bottom: 10px; }
+.sheet[data-layout="letterhead"] .s-meta { margin: 0 auto; }
+.sheet[data-layout="letterhead"] .s-meta th, .sheet[data-layout="letterhead"] .s-meta td { text-align: center; padding: 2px 8px; }
+.sheet[data-layout="letterhead"] .s-parties { margin-top: 26px; }
+
 /* ============ History drawer ============ */
 .drawer-backdrop {
   position: fixed; inset: 0;
@@ -421,7 +522,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--in
 .history-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .history-item {
   border: 1px solid var(--line-soft);
-  background: #fff;
+  background: var(--card);
   border-radius: var(--radius);
   padding: 10px 12px;
 }
@@ -536,10 +637,11 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--in
   .sheet {
     width: 210mm;
     min-height: 285mm;
-    box-shadow: none;
+    box-shadow: none !important; /* beats the dark-mode shadow's higher specificity */
     padding: 15mm 15mm 10mm;
     margin: 0 auto;
   }
+  body, body[data-ui="dark"] { background: #fff !important; }
   .s-items th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .s-items tbody tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .s-items .placeholder { display: none; }

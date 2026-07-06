@@ -22,9 +22,17 @@
   };
 
   var TYPE_META = {
-    invoice: { title: "INVOICE", numLabel: "Invoice no.", prefix: "INV", dueLabel: "Due", totalLabel: "Total due", numberFieldLabel: "Invoice number", showDue: true },
-    quote:   { title: "QUOTE",   numLabel: "Quote no.",   prefix: "QUO", dueLabel: "Valid until", totalLabel: "Total", numberFieldLabel: "Quote number", showDue: true },
-    receipt: { title: "RECEIPT", numLabel: "Receipt no.", prefix: "REC", dueLabel: "Due", totalLabel: "Total paid", numberFieldLabel: "Receipt number", showDue: false }
+    invoice: { prefix: "INV", numberFieldLabel: "Invoice number", dueFieldLabel: "Due date", showDue: true },
+    quote:   { prefix: "QUO", numberFieldLabel: "Quote number", dueFieldLabel: "Valid until", showDue: true },
+    receipt: { prefix: "REC", numberFieldLabel: "Receipt number", dueFieldLabel: "Due date", showDue: false }
+  };
+
+  // Document-facing labels per language (editor UI stays English)
+  var LANGS = {
+    en: { locale: "en-IE", titles: { invoice: "INVOICE", quote: "QUOTE", receipt: "RECEIPT" }, numLabels: { invoice: "Invoice no.", quote: "Quote no.", receipt: "Receipt no." }, date: "Date", due: "Due", validUntil: "Valid until", ref: "Ref", billedTo: "Billed to", preparedFor: "Prepared for", desc: "Description", qty: "Qty", unitPrice: "Unit price", vat: "VAT", amount: "Amount", subtotal: "Subtotal", discount: "Discount", paidToDate: "Paid to date", totals: { invoice: "Total due", quote: "Total", receipt: "Total paid" }, balanceDue: "Balance due", paymentDetails: "Payment details", notes: "Notes", thanks: "Thank you for your business.", quoteFoot: "This quote is valid until the date shown above.", paidStamp: "PAID" },
+    fr: { locale: "fr-FR", titles: { invoice: "FACTURE", quote: "DEVIS", receipt: "REÇU" }, numLabels: { invoice: "Facture n°", quote: "Devis n°", receipt: "Reçu n°" }, date: "Date", due: "Échéance", validUntil: "Valable jusqu'au", ref: "Réf.", billedTo: "Facturé à", preparedFor: "Préparé pour", desc: "Description", qty: "Qté", unitPrice: "Prix unitaire", vat: "TVA", amount: "Montant", subtotal: "Sous-total", discount: "Remise", paidToDate: "Déjà payé", totals: { invoice: "Total à payer", quote: "Total", receipt: "Total payé" }, balanceDue: "Solde dû", paymentDetails: "Modalités de paiement", notes: "Remarques", thanks: "Merci de votre confiance.", quoteFoot: "Ce devis est valable jusqu'à la date indiquée ci-dessus.", paidStamp: "PAYÉ" },
+    de: { locale: "de-DE", titles: { invoice: "RECHNUNG", quote: "ANGEBOT", receipt: "QUITTUNG" }, numLabels: { invoice: "Rechnungsnr.", quote: "Angebotsnr.", receipt: "Quittungsnr." }, date: "Datum", due: "Fällig", validUntil: "Gültig bis", ref: "Ref.", billedTo: "Rechnung an", preparedFor: "Erstellt für", desc: "Beschreibung", qty: "Menge", unitPrice: "Einzelpreis", vat: "MwSt.", amount: "Betrag", subtotal: "Zwischensumme", discount: "Rabatt", paidToDate: "Bereits gezahlt", totals: { invoice: "Gesamtbetrag", quote: "Gesamt", receipt: "Gezahlt" }, balanceDue: "Restbetrag", paymentDetails: "Zahlungsdetails", notes: "Hinweise", thanks: "Vielen Dank für Ihren Auftrag.", quoteFoot: "Dieses Angebot ist bis zum oben genannten Datum gültig.", paidStamp: "BEZAHLT" },
+    es: { locale: "es-ES", titles: { invoice: "FACTURA", quote: "PRESUPUESTO", receipt: "RECIBO" }, numLabels: { invoice: "Factura n.º", quote: "Presupuesto n.º", receipt: "Recibo n.º" }, date: "Fecha", due: "Vencimiento", validUntil: "Válido hasta", ref: "Ref.", billedTo: "Facturar a", preparedFor: "Preparado para", desc: "Descripción", qty: "Cant.", unitPrice: "Precio unitario", vat: "IVA", amount: "Importe", subtotal: "Subtotal", discount: "Descuento", paidToDate: "Ya pagado", totals: { invoice: "Total a pagar", quote: "Total", receipt: "Total pagado" }, balanceDue: "Saldo pendiente", paymentDetails: "Datos de pago", notes: "Notas", thanks: "Gracias por su confianza.", quoteFoot: "Este presupuesto es válido hasta la fecha indicada arriba.", paidStamp: "PAGADO" }
   };
 
   // ---------- helpers ----------
@@ -53,13 +61,17 @@
     var day = String(d.getDate()).padStart(2, "0");
     return d.getFullYear() + "-" + m + "-" + day;
   }
-  function fmtDate(iso) {
+  function fmtDate(iso, locale) {
     if (!iso) return "";
     var parts = iso.split("-");
     if (parts.length !== 3) return iso;
     var d = new Date(+parts[0], +parts[1] - 1, +parts[2]);
     if (isNaN(d)) return iso;
-    return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+    try {
+      return d.toLocaleDateString(locale || undefined, { day: "numeric", month: "short", year: "numeric" });
+    } catch (e) {
+      return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+    }
   }
   function num(v) {
     var n = parseFloat(v);
@@ -90,6 +102,47 @@
   var clients = load(LS.clients, []);
   var doc = null;         // current document
   var savedId = null;     // id in docs[] if this doc has been saved
+  var sharedView = false; // viewing a document opened from a share link
+
+  function reEsc(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+
+  function profileSnapshot() {
+    return {
+      bizName: settings.bizName || "", bizVat: settings.bizVat || "",
+      bizAddress: settings.bizAddress || "", logo: settings.logo || "",
+      payment: settings.payment || "", notes: settings.notes || ""
+    };
+  }
+  function syncProfileSnapshot() {
+    settings.profiles[settings.activeProfile] = profileSnapshot();
+  }
+  function loadProfile(i) {
+    var p = settings.profiles[i];
+    if (!p) return;
+    settings.activeProfile = i;
+    settings.bizName = p.bizName; settings.bizVat = p.bizVat;
+    settings.bizAddress = p.bizAddress; settings.logo = p.logo;
+    settings.payment = p.payment; settings.notes = p.notes;
+  }
+
+  function ensureSettings() {
+    if (!settings.counters || typeof settings.counters !== "object") settings.counters = { invoice: 1, quote: 1, receipt: 1 };
+    if (!settings.prefixes || typeof settings.prefixes !== "object") settings.prefixes = {};
+    ["invoice", "quote", "receipt"].forEach(function (t) {
+      if (!settings.prefixes[t]) settings.prefixes[t] = TYPE_META[t].prefix;
+      if (!settings.counters[t]) settings.counters[t] = 1;
+    });
+    if (!settings.layout) settings.layout = "classic";
+    if (!settings.lang || !LANGS[settings.lang]) settings.lang = "en";
+    if (!Array.isArray(settings.profiles) || settings.profiles.length === 0) {
+      settings.profiles = [profileSnapshot()];
+      settings.activeProfile = 0;
+    }
+    if (typeof settings.activeProfile !== "number" || settings.activeProfile < 0 || settings.activeProfile >= settings.profiles.length) {
+      settings.activeProfile = 0;
+    }
+  }
+  ensureSettings();
 
   function newDoc(type) {
     var t = type || "invoice";
@@ -107,6 +160,8 @@
       discount: 0,
       discountType: "percent",
       amountPaid: 0,
+      layout: settings.layout || "classic",
+      lang: settings.lang || "en",
       payment: settings.payment || "",
       notes: settings.notes || "",
       status: "draft"
@@ -116,9 +171,14 @@
     return { desc: "", qty: 1, price: "", vat: num(settings.defaultVat) };
   }
   function autoNumber(type) {
-    var meta = TYPE_META[type];
+    var prefix = (settings.prefixes && settings.prefixes[type]) || TYPE_META[type].prefix;
     var count = (settings.counters && settings.counters[type]) || 1;
-    return meta.prefix + "-" + pad(count);
+    return prefix + "-" + pad(count);
+  }
+  function isAutoNumber(n, type) {
+    if (!n) return true;
+    var pattern = "^(?:" + reEsc(TYPE_META[type].prefix) + "|" + reEsc((settings.prefixes && settings.prefixes[type]) || "") + ")-\\d+$";
+    return new RegExp(pattern).test(n);
   }
 
   // ---------- editor <-> doc binding ----------
@@ -140,11 +200,14 @@
     $("f-default-vat").value = settings.defaultVat;
     $("f-payment").value = doc.payment;
     $("f-notes").value = doc.notes;
+    $("f-lang").value = LANGS[doc.lang] ? doc.lang : "en";
     renderItemRows();
     syncTypeUI();
     syncThemeUI();
+    syncLayoutUI();
     syncLogoUI();
     renderClientDatalist();
+    renderProfileSelect();
   }
 
   function readEditor() {
@@ -167,6 +230,12 @@
     doc.notes = $("f-notes").value;
     settings.payment = doc.payment;
     settings.notes = doc.notes;
+    doc.lang = $("f-lang").value;
+    settings.lang = doc.lang;
+    var pfx = $("f-prefix").value.trim();
+    settings.prefixes[doc.type] = pfx || TYPE_META[doc.type].prefix;
+    var nn = Math.floor(num($("f-next-number").value));
+    if (nn >= 1) settings.counters[doc.type] = nn;
   }
 
   // ---------- line item rows ----------
@@ -251,31 +320,46 @@
   // ---------- preview render ----------
   function render() {
     var meta = TYPE_META[doc.type];
+    var L = LANGS[doc.lang] || LANGS.en;
     var cur = doc.currency;
+    var biz = doc._sharedBiz || settings;
 
-    $("s-doctitle").textContent = meta.title;
-    $("s-numlabel").textContent = meta.numLabel;
+    $("sheet").dataset.layout = doc.layout || "classic";
+
+    $("s-doctitle").textContent = L.titles[doc.type];
+    $("s-numlabel").textContent = L.numLabels[doc.type];
     $("s-number").textContent = doc.number || "—";
-    $("s-date").textContent = fmtDate(doc.date);
+    $("s-date-label").textContent = L.date;
+    $("s-date").textContent = fmtDate(doc.date, L.locale);
     $("s-due-row").hidden = !meta.showDue || !doc.due;
-    $("s-duelabel").textContent = meta.dueLabel;
-    $("s-due").textContent = fmtDate(doc.due);
+    $("s-duelabel").textContent = doc.type === "quote" ? L.validUntil : L.due;
+    $("s-due").textContent = fmtDate(doc.due, L.locale);
     $("s-ref-row").hidden = !doc.reference;
+    $("s-ref-label").textContent = L.ref;
     $("s-reference").textContent = doc.reference;
 
-    $("s-bizname").textContent = settings.bizName || "Your Business";
-    $("s-bizaddress").textContent = settings.bizAddress;
-    $("s-bizvat").textContent = settings.bizVat ? "VAT: " + settings.bizVat : "";
+    $("s-bizname").textContent = biz.bizName || "Your Business";
+    $("s-bizaddress").textContent = biz.bizAddress;
+    $("s-bizvat").textContent = biz.bizVat ? L.vat + ": " + biz.bizVat : "";
 
     var logo = $("s-logo");
-    if (settings.logo) { logo.src = settings.logo; logo.hidden = false; }
+    var logoSrc = doc._sharedBiz ? "" : settings.logo; // logos are too big for share links
+    if (logoSrc) { logo.src = logoSrc; logo.hidden = false; }
     else { logo.hidden = true; logo.removeAttribute("src"); }
 
-    $("s-billto-label").textContent = doc.type === "quote" ? "Prepared for" : "Billed to";
+    $("s-billto-label").textContent = doc.type === "quote" ? L.preparedFor : L.billedTo;
     $("s-clientname").textContent = doc.client.name || "Client name";
     $("s-clientaddress").textContent = doc.client.address;
-    $("s-clientvat").textContent = doc.client.vat ? "VAT: " + doc.client.vat : "";
+    $("s-clientvat").textContent = doc.client.vat ? L.vat + ": " + doc.client.vat : "";
 
+    var ths = document.querySelectorAll(".s-items thead th");
+    ths[0].textContent = L.desc;
+    ths[1].textContent = L.qty;
+    ths[2].textContent = L.unitPrice;
+    ths[3].textContent = L.vat;
+    ths[4].textContent = L.amount;
+
+    $("s-paid-stamp").textContent = L.paidStamp;
     $("s-paid-stamp").hidden = !(doc.type === "receipt" || doc.status === "paid");
 
     // items table
@@ -310,12 +394,13 @@
 
     // totals
     var t = calcTotals();
+    $("s-subtotal-label").textContent = L.subtotal;
     $("s-subtotal").textContent = money(t.subtotal, cur);
     $("s-discount-row").hidden = t.discountAmt <= 0;
     if (t.discountAmt > 0) {
       $("s-discount-label").textContent = doc.discountType === "percent"
-        ? "Discount (" + doc.discount + "%)"
-        : "Discount";
+        ? L.discount + " (" + doc.discount + "%)"
+        : L.discount;
       $("s-discount").textContent = "−" + money(t.discountAmt, cur);
     }
     var vatRows = $("s-vat-rows");
@@ -323,26 +408,27 @@
     Object.keys(t.vatByRate).sort(function (a, b) { return a - b; }).forEach(function (rate) {
       var tr = document.createElement("tr");
       var th = document.createElement("th");
-      th.textContent = "VAT (" + rate + "%)";
+      th.textContent = L.vat + " (" + rate + "%)";
       var td = document.createElement("td");
       td.textContent = money(t.vatByRate[rate], cur);
       tr.append(th, td);
       vatRows.appendChild(tr);
     });
     $("s-paid-row").hidden = t.paid <= 0;
+    $("s-paid-label").textContent = L.paidToDate;
     if (t.paid > 0) $("s-paid").textContent = "−" + money(t.paid, cur);
-    $("s-total-label").textContent = t.paid > 0 ? "Balance due" : meta.totalLabel;
+    $("s-total-label").textContent = t.paid > 0 ? L.balanceDue : L.totals[doc.type];
     $("s-total").textContent = money(t.paid > 0 ? t.balance : t.total, cur);
 
     // payment / notes blocks
+    $("s-payment-title").textContent = L.paymentDetails;
     $("s-payment-block").hidden = !(doc.payment.trim() && doc.type !== "quote");
     $("s-payment").textContent = doc.payment;
+    $("s-notes-title").textContent = L.notes;
     $("s-notes-block").hidden = !doc.notes.trim();
     $("s-notes").textContent = doc.notes;
 
-    $("s-foot-thanks").textContent = doc.type === "quote"
-      ? "This quote is valid until the date shown above."
-      : "Thank you for your business.";
+    $("s-foot-thanks").textContent = doc.type === "quote" ? L.quoteFoot : L.thanks;
 
     applyTheme(doc.theme);
   }
@@ -369,9 +455,32 @@
       b.setAttribute("aria-selected", on ? "true" : "false");
     });
     $("lbl-number").textContent = meta.numberFieldLabel;
-    $("lbl-due").textContent = meta.dueLabel === "Due" ? "Due date" : meta.dueLabel;
+    $("lbl-due").textContent = meta.dueFieldLabel;
     $("wrap-due").style.display = meta.showDue ? "" : "none";
     $("btn-convert").hidden = doc.type !== "quote";
+    $("f-prefix").value = settings.prefixes[doc.type];
+    $("f-next-number").value = settings.counters[doc.type] || 1;
+  }
+  function syncLayoutUI() {
+    document.querySelectorAll("#layout-btns button").forEach(function (b) {
+      b.classList.toggle("is-on", b.dataset.layout === (doc.layout || "classic"));
+    });
+  }
+  function renderProfileSelect() {
+    var sel = $("f-profile");
+    sel.textContent = "";
+    settings.profiles.forEach(function (p, i) {
+      var o = document.createElement("option");
+      o.value = i;
+      o.textContent = p.bizName || "Business " + (i + 1);
+      sel.appendChild(o);
+    });
+    // the active profile mirrors the live editor fields
+    if (sel.options[settings.activeProfile]) {
+      sel.options[settings.activeProfile].textContent = settings.bizName || "Business " + (settings.activeProfile + 1);
+    }
+    sel.value = settings.activeProfile;
+    $("btn-profile-del").hidden = settings.profiles.length < 2;
   }
   function syncThemeUI() {
     document.querySelectorAll(".swatch").forEach(function (s) {
@@ -424,11 +533,14 @@
 
   // ---------- persistence ----------
   var persistDraft = debounce(function () {
+    if (sharedView) return; // never overwrite the local draft while just viewing a shared doc
+    syncProfileSnapshot();
     save(LS.draft, { doc: doc, savedId: savedId });
     save(LS.settings, settings);
   }, 400);
 
   function saveDocument() {
+    if (sharedView) exitSharedView(true); // saving a shared doc = saving your own copy
     readEditor();
     if (!doc.number) { doc.number = autoNumber(doc.type); $("f-number").value = doc.number; }
 
@@ -449,6 +561,7 @@
     }
 
     upsertClient();
+    syncProfileSnapshot();
     save(LS.docs, docs);
     save(LS.settings, settings);
     persistDraft();
@@ -624,9 +737,7 @@
         defaultVat: 23, currency: "EUR", theme: "forest",
         payment: "", notes: ""
       }, data.settings || {});
-      if (!settings.counters || typeof settings.counters !== "object") {
-        settings.counters = { invoice: 1, quote: 1, receipt: 1 };
-      }
+      ensureSettings();
       docs = data.docs;
       clients = Array.isArray(data.clients) ? data.clients : clients;
       save(LS.settings, settings);
@@ -675,7 +786,18 @@
       var field = t.dataset.field;
       if (doc.items[idx] && field) doc.items[idx][field] = t.value;
     }
+    var wasAuto = isAutoNumber(doc.number, doc.type);
     readEditor();
+    // editing numbering settings regenerates an auto-style number live
+    if ((t.id === "f-prefix" || t.id === "f-next-number") && wasAuto) {
+      doc.number = autoNumber(doc.type);
+      $("f-number").value = doc.number;
+    }
+    // keep the profile dropdown label in sync with the business name
+    if (t.id === "f-biz-name") {
+      var opt = $("f-profile").options[settings.activeProfile];
+      if (opt) opt.textContent = settings.bizName || "Business " + (settings.activeProfile + 1);
+    }
     render();
     persistDraft();
   }
@@ -710,9 +832,9 @@
       var newType = b.dataset.doctype;
       if (doc.type === newType) return;
       var oldType = doc.type;
-      var autoPattern = new RegExp("^" + TYPE_META[oldType].prefix + "-\\d+$");
+      var wasAuto = isAutoNumber(doc.number, oldType);
       doc.type = newType;
-      if (!doc.number || autoPattern.test(doc.number)) {
+      if (wasAuto) {
         doc.number = autoNumber(newType);
         $("f-number").value = doc.number;
       }
@@ -722,6 +844,43 @@
       render();
       persistDraft();
     });
+  });
+
+  $("layout-btns").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    doc.layout = b.dataset.layout;
+    settings.layout = b.dataset.layout;
+    syncLayoutUI();
+    render();
+    persistDraft();
+  });
+
+  $("f-profile").addEventListener("change", function () {
+    syncProfileSnapshot();
+    loadProfile(+this.value);
+    fillEditor();
+    render();
+    persistDraft();
+  });
+  $("btn-profile-new").addEventListener("click", function () {
+    syncProfileSnapshot();
+    settings.profiles.push({ bizName: "", bizVat: "", bizAddress: "", logo: "", payment: "", notes: "" });
+    loadProfile(settings.profiles.length - 1);
+    fillEditor();
+    render();
+    persistDraft();
+    $("f-biz-name").focus();
+  });
+  $("btn-profile-del").addEventListener("click", function () {
+    if (settings.profiles.length < 2) return;
+    var label = settings.bizName || "this profile";
+    if (!confirm("Delete " + label + "? Its saved details are removed (documents are kept).")) return;
+    settings.profiles.splice(settings.activeProfile, 1);
+    loadProfile(0);
+    fillEditor();
+    render();
+    persistDraft();
   });
 
   $("theme-swatches").addEventListener("click", function (e) {
@@ -811,6 +970,80 @@
     persistDraft();
   });
 
+  // ---------- share links ----------
+  function b64urlEncode(str) {
+    return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function b64urlDecode(s) {
+    s = s.replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) s += "=";
+    return decodeURIComponent(escape(atob(s)));
+  }
+
+  $("btn-share").addEventListener("click", function () {
+    readEditor();
+    var shareDoc = JSON.parse(JSON.stringify(doc));
+    delete shareDoc._sharedBiz;
+    delete shareDoc.id;
+    var payload = {
+      v: 1,
+      doc: shareDoc,
+      biz: { bizName: settings.bizName, bizVat: settings.bizVat, bizAddress: settings.bizAddress }
+    };
+    var url = location.origin + location.pathname + "#d=" + b64urlEncode(JSON.stringify(payload));
+    if (url.length > 7500) { alert("This document is too large to share as a link — try shortening the notes."); return; }
+    var btn = this;
+    function done() {
+      var old = "Copy share link";
+      btn.textContent = "Link copied ✓";
+      setTimeout(function () { btn.textContent = old; }, 1600);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done, function () { prompt("Copy this link:", url); });
+    } else {
+      prompt("Copy this link:", url);
+    }
+  });
+
+  function exitSharedView(keepDoc) {
+    sharedView = false;
+    $("shared-banner").hidden = true;
+    if (history.replaceState) history.replaceState(null, "", location.pathname + location.search);
+    if (keepDoc) {
+      delete doc._sharedBiz;
+      savedId = null;
+    } else {
+      doc = newDoc("invoice");
+      savedId = null;
+    }
+    fillEditor();
+    render();
+  }
+  $("btn-shared-save").addEventListener("click", function () {
+    exitSharedView(true);
+    saveDocument();
+  });
+  $("btn-shared-new").addEventListener("click", function () {
+    exitSharedView(false);
+    persistDraft();
+  });
+
+  // ---------- dark mode ----------
+  function applyUITheme() {
+    var t = settings.uiTheme;
+    if (t !== "dark" && t !== "light") {
+      t = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    document.body.dataset.ui = t;
+    $("btn-uitheme").textContent = t === "dark" ? "☀" : "☾";
+    $("btn-uitheme").title = t === "dark" ? "Switch to light mode" : "Switch to dark mode";
+  }
+  $("btn-uitheme").addEventListener("click", function () {
+    settings.uiTheme = document.body.dataset.ui === "dark" ? "light" : "dark";
+    save(LS.settings, settings);
+    applyUITheme();
+  });
+
   // mobile edit/preview tabs
   document.querySelectorAll(".mobile-tabs button").forEach(function (b) {
     b.addEventListener("click", function () {
@@ -824,12 +1057,31 @@
     });
   });
 
+  window.addEventListener("hashchange", function () {
+    // opening a share link while the app is already loaded — boot again
+    if (location.hash.indexOf("#d=") === 0) location.reload();
+  });
   window.addEventListener("resize", debounce(scalePreview, 100));
   window.addEventListener("beforeprint", function () { readEditor(); render(); });
 
   // ---------- boot ----------
   var draft = isDemo ? null : load(LS.draft, null);
-  if (isDemo) {
+  var sharedPayload = null;
+  if (!isDemo && location.hash.indexOf("#d=") === 0) {
+    try {
+      var sp = JSON.parse(b64urlDecode(location.hash.slice(3)));
+      if (sp && sp.doc && Array.isArray(sp.doc.items)) sharedPayload = sp;
+    } catch (e) { /* malformed link — fall through to normal boot */ }
+  }
+  if (sharedPayload) {
+    doc = sharedPayload.doc;
+    doc.id = null;
+    doc._sharedBiz = sharedPayload.biz || null;
+    savedId = null;
+    sharedView = true;
+    $("shared-banner").hidden = false;
+    $("shared-from").textContent = sharedPayload.biz && sharedPayload.biz.bizName ? "from " + sharedPayload.biz.bizName : "";
+  } else if (isDemo) {
     doc = newDoc("invoice");
     settings.bizName = "Aoife Byrne Design";
     settings.bizAddress = "12 Main Street, Tullamore, Co. Offaly\nhello@aoifebyrne.ie\n+353 87 123 4567";
@@ -842,18 +1094,30 @@
     ];
     doc.payment = "Bank: AIB\nIBAN: IE00 AIBK 0000 0000 0000 00\nBIC: AIBKIE2D";
     doc.notes = "Payment due within 14 days. Thank you for your business!";
+    var mLayout = location.search.match(/[?&]layout=(\w+)/);
+    if (mLayout) doc.layout = mLayout[1];
+    var mLang = location.search.match(/[?&]lang=(\w+)/);
+    if (mLang && LANGS[mLang[1]]) doc.lang = mLang[1];
   } else if (draft && draft.doc && draft.doc.items) {
     doc = draft.doc;
     savedId = draft.savedId || null;
-    // forward-compat: fill any missing fields from a fresh doc
-    var fresh = newDoc(doc.type);
-    Object.keys(fresh).forEach(function (k) {
-      if (doc[k] === undefined) doc[k] = fresh[k];
-    });
   } else {
     doc = newDoc("invoice");
   }
-  document.body.dataset.mview = "edit";
+  // forward-compat: fill any missing fields from a fresh doc (drafts, shares, old backups)
+  var fresh = newDoc(doc.type || "invoice");
+  Object.keys(fresh).forEach(function (k) {
+    if (doc[k] === undefined) doc[k] = fresh[k];
+  });
+  document.body.dataset.mview = sharedView ? "preview" : "edit";
+  if (sharedView) {
+    document.querySelectorAll(".mobile-tabs button").forEach(function (x) {
+      var on = x.dataset.mtab === "preview";
+      x.classList.toggle("is-on", on);
+      x.setAttribute("aria-selected", on ? "true" : "false");
+    });
+  }
+  applyUITheme();
   $("foot-year").textContent = new Date().getFullYear();
   if (isDemo) {
     var note = $("autosave-note");

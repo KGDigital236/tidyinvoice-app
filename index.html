@@ -40,6 +40,7 @@
   </nav>
 
   <div class="topbar-actions">
+    <button type="button" id="btn-uitheme" class="btn ghost" title="Toggle dark mode" aria-label="Toggle dark mode">☾</button>
     <button type="button" id="btn-new" class="btn ghost" title="Start a fresh document">New</button>
     <button type="button" id="btn-history" class="btn ghost">Saved <span id="history-count" class="count-pill" hidden>0</span></button>
     <button type="button" id="btn-save" class="btn ghost">Save</button>
@@ -51,6 +52,14 @@
 
   <!-- ============ EDITOR ============ -->
   <section class="editor no-print" id="editor" aria-label="Document editor">
+
+    <div class="shared-banner" id="shared-banner" hidden>
+      <span><strong>Shared document</strong> <span id="shared-from"></span> — viewing only.</span>
+      <span class="hi-actions">
+        <button type="button" id="btn-shared-save" class="btn tiny primary">Save a copy</button>
+        <button type="button" id="btn-shared-new" class="btn tiny ghost">Start fresh</button>
+      </span>
+    </div>
 
     <div class="mobile-tabs no-print" role="tablist" aria-label="Editor or preview">
       <button type="button" class="is-on" data-mtab="edit" role="tab" aria-selected="true">Edit</button>
@@ -97,6 +106,35 @@
         </div>
         <div class="field-row">
           <label class="field">
+            <span>Layout</span>
+            <div class="layout-btns" id="layout-btns" role="group" aria-label="Document layout">
+              <button type="button" data-layout="classic" class="is-on">Classic</button>
+              <button type="button" data-layout="minimal">Minimal</button>
+              <button type="button" data-layout="letterhead">Letterhead</button>
+            </div>
+          </label>
+          <label class="field">
+            <span>Document language</span>
+            <select id="f-lang">
+              <option value="en">English</option>
+              <option value="fr">Français</option>
+              <option value="de">Deutsch</option>
+              <option value="es">Español</option>
+            </select>
+          </label>
+        </div>
+        <div class="field-row">
+          <label class="field">
+            <span>Number prefix</span>
+            <input type="text" id="f-prefix" maxlength="10" autocomplete="off">
+          </label>
+          <label class="field">
+            <span>Next number</span>
+            <input type="number" id="f-next-number" min="1" step="1" inputmode="numeric">
+          </label>
+        </div>
+        <div class="field-row">
+          <label class="field">
             <span>Reference / PO <small>(optional)</small></span>
             <input type="text" id="f-reference" placeholder="e.g. PO-2381" autocomplete="off">
           </label>
@@ -117,6 +155,19 @@
     <details class="ed-group" open>
       <summary>Your business</summary>
       <div class="ed-body">
+        <div class="field-row">
+          <label class="field">
+            <span>Business profile</span>
+            <select id="f-profile"></select>
+          </label>
+          <div class="field profile-actions">
+            <span>&nbsp;</span>
+            <div class="logo-actions">
+              <button type="button" id="btn-profile-new" class="btn tiny ghost">+ New profile</button>
+              <button type="button" id="btn-profile-del" class="btn tiny ghost danger" hidden>Delete</button>
+            </div>
+          </div>
+        </div>
         <div class="field-row">
           <label class="field">
             <span>Business / your name</span>
@@ -216,6 +267,7 @@
 
     <div class="editor-foot">
       <button type="button" id="btn-convert" class="btn ghost" hidden>Convert quote → invoice</button>
+      <button type="button" id="btn-share" class="btn ghost">Copy share link</button>
       <span class="autosave-note" id="autosave-note">Draft autosaves in your browser</span>
     </div>
   </section>
@@ -235,9 +287,9 @@
             <h1 class="s-doctitle" id="s-doctitle">INVOICE</h1>
             <table class="s-meta">
               <tr><th id="s-numlabel">Invoice no.</th><td id="s-number">INV-001</td></tr>
-              <tr><th>Date</th><td id="s-date"></td></tr>
+              <tr><th id="s-date-label">Date</th><td id="s-date"></td></tr>
               <tr id="s-due-row"><th id="s-duelabel">Due</th><td id="s-due"></td></tr>
-              <tr id="s-ref-row" hidden><th>Ref</th><td id="s-reference"></td></tr>
+              <tr id="s-ref-row" hidden><th id="s-ref-label">Ref</th><td id="s-reference"></td></tr>
             </table>
           </div>
         </header>
@@ -262,19 +314,19 @@
         <section class="s-totals-wrap">
           <div class="s-notescol">
             <div id="s-payment-block" hidden>
-              <h3>Payment details</h3>
+              <h3 id="s-payment-title">Payment details</h3>
               <div class="s-bizmeta" id="s-payment"></div>
             </div>
             <div id="s-notes-block" hidden>
-              <h3>Notes</h3>
+              <h3 id="s-notes-title">Notes</h3>
               <div class="s-bizmeta" id="s-notes"></div>
             </div>
           </div>
           <table class="s-totals">
-            <tr><th>Subtotal</th><td id="s-subtotal"></td></tr>
+            <tr><th id="s-subtotal-label">Subtotal</th><td id="s-subtotal"></td></tr>
             <tr id="s-discount-row" hidden><th id="s-discount-label">Discount</th><td id="s-discount"></td></tr>
             <tbody id="s-vat-rows"></tbody>
-            <tr id="s-paid-row" hidden><th>Paid to date</th><td id="s-paid"></td></tr>
+            <tr id="s-paid-row" hidden><th id="s-paid-label">Paid to date</th><td id="s-paid"></td></tr>
             <tr class="s-grand"><th id="s-total-label">Total due</th><td id="s-total"></td></tr>
           </table>
         </section>
