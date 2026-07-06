@@ -1,0 +1,12 @@
+{
+  "name": "TidyInvoice — Invoice, Quote & Receipt Generator",
+  "short_name": "TidyInvoice",
+  "description": "Create professional invoices, quotes and receipts. Free, no signup, data stays on your device.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f3efe6",
+  "theme_color": "#1e6f50",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TidyInvoice — Free Invoice, Quote &amp; Receipt Generator (No Signup)</title>
+<meta name="description" content="Create professional invoices, quotes and receipts in seconds. VAT-ready, works offline, no signup, no watermark tricks. Your data never leaves your browser.">
+<meta name="keywords" content="free invoice generator, invoice maker, quote generator, receipt maker, VAT invoice, sole trader invoice, freelancer invoice, Ireland, UK">
+<meta property="og:title" content="TidyInvoice — Free Invoice, Quote &amp; Receipt Generator">
+<meta property="og:description" content="Professional invoices in seconds. VAT-ready. No signup. Data stays in your browser.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231e6f50'/%3E%3Cpath d='M9 10h14M9 16h14M9 22h8' stroke='%23f5f2ea' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e6f50">
+<link rel="stylesheet" href="styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "TidyInvoice",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Any",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+  "description": "Free invoice, quote and receipt generator for sole traders and freelancers. VAT-ready, no signup, data stays in your browser."
+}
+</script>
+</head>
+<body>
+
+<header class="topbar no-print">
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)"/><path d="M9 10h14M9 16h14M9 22h8" stroke="#f5f2ea" stroke-width="2.6" stroke-linecap="round"/></svg>
+    <span class="brand-name">Tidy<em>Invoice</em></span>
+  </div>
+
+  <nav class="doc-type-switch" role="tablist" aria-label="Document type">
+    <button type="button" role="tab" data-doctype="invoice" class="is-on" aria-selected="true">Invoice</button>
+    <button type="button" role="tab" data-doctype="quote" aria-selected="false">Quote</button>
+    <button type="button" role="tab" data-doctype="receipt" aria-selected="false">Receipt</button>
+  </nav>
+
+  <div class="topbar-actions">
+    <button type="button" id="btn-new" class="btn ghost" title="Start a fresh document">New</button>
+    <button type="button" id="btn-history" class="btn ghost">Saved <span id="history-count" class="count-pill" hidden>0</span></button>
+    <button type="button" id="btn-save" class="btn ghost">Save</button>
+    <button type="button" id="btn-download" class="btn primary">Download PDF</button>
+  </div>
+</header>
+
+<main class="workspace">
+
+  <!-- ============ EDITOR ============ -->
+  <section class="editor no-print" id="editor" aria-label="Document editor">
+
+    <div class="mobile-tabs no-print" role="tablist" aria-label="Editor or preview">
+      <button type="button" class="is-on" data-mtab="edit" role="tab" aria-selected="true">Edit</button>
+      <button type="button" data-mtab="preview" role="tab" aria-selected="false">Preview</button>
+    </div>
+
+    <details class="ed-group" open>
+      <summary>Document details</summary>
+      <div class="ed-body">
+        <div class="field-row">
+          <label class="field">
+            <span id="lbl-number">Invoice number</span>
+            <input type="text" id="f-number" autocomplete="off">
+          </label>
+          <label class="field">
+            <span>Currency</span>
+            <select id="f-currency">
+              <option value="EUR">EUR €</option>
+              <option value="GBP">GBP £</option>
+              <option value="USD">USD $</option>
+              <option value="AUD">AUD $</option>
+              <option value="CAD">CAD $</option>
+              <option value="NZD">NZD $</option>
+              <option value="CHF">CHF</option>
+              <option value="SEK">SEK kr</option>
+              <option value="NOK">NOK kr</option>
+              <option value="DKK">DKK kr</option>
+              <option value="PLN">PLN zł</option>
+              <option value="JPY">JPY ¥</option>
+              <option value="INR">INR ₹</option>
+              <option value="ZAR">ZAR R</option>
+            </select>
+          </label>
+        </div>
+        <div class="field-row">
+          <label class="field">
+            <span>Issue date</span>
+            <input type="date" id="f-date">
+          </label>
+          <label class="field" id="wrap-due">
+            <span id="lbl-due">Due date</span>
+            <input type="date" id="f-due">
+          </label>
+        </div>
+        <div class="field-row">
+          <label class="field">
+            <span>Reference / PO <small>(optional)</small></span>
+            <input type="text" id="f-reference" placeholder="e.g. PO-2381" autocomplete="off">
+          </label>
+          <label class="field">
+            <span>Accent colour</span>
+            <div class="swatches" id="theme-swatches">
+              <button type="button" class="swatch is-on" data-theme="forest" style="--sw:#1e6f50" aria-label="Forest green"></button>
+              <button type="button" class="swatch" data-theme="ink" style="--sw:#1f2733" aria-label="Ink"></button>
+              <button type="button" class="swatch" data-theme="clay" style="--sw:#b4552d" aria-label="Clay"></button>
+              <button type="button" class="swatch" data-theme="ocean" style="--sw:#1f5f8b" aria-label="Ocean"></button>
+              <button type="button" class="swatch" data-theme="plum" style="--sw:#6d3352" aria-label="Plum"></button>
+            </div>
+          </label>
+        </div>
+      </div>
+    </details>
+
+    <details class="ed-group" open>
+      <summary>Your business</summary>
+      <div class="ed-body">
+        <div class="field-row">
+          <label class="field">
+            <span>Business / your name</span>
+            <input type="text" id="f-biz-name" placeholder="e.g. Aoife Byrne Design" autocomplete="organization">
+          </label>
+          <label class="field">
+            <span>VAT / Tax number <small>(optional)</small></span>
+            <input type="text" id="f-biz-vat" placeholder="e.g. IE1234567A" autocomplete="off">
+          </label>
+        </div>
+        <label class="field">
+          <span>Address &amp; contact <small>(one line each)</small></span>
+          <textarea id="f-biz-address" rows="3" placeholder="12 Main Street, Tullamore, Co. Offaly&#10;hello@example.com&#10;+353 87 123 4567"></textarea>
+        </label>
+        <div class="field-row">
+          <label class="field">
+            <span>Logo <small>(optional, stays on this device)</small></span>
+            <input type="file" id="f-logo" accept="image/png,image/jpeg,image/svg+xml,image/webp">
+          </label>
+          <div class="field logo-slot">
+            <span>&nbsp;</span>
+            <div class="logo-actions">
+              <img id="logo-thumb" alt="Your logo" hidden>
+              <button type="button" id="btn-logo-remove" class="btn tiny ghost" hidden>Remove logo</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <details class="ed-group" open>
+      <summary>Bill to</summary>
+      <div class="ed-body">
+        <div class="field-row">
+          <label class="field">
+            <span>Client name</span>
+            <input type="text" id="f-client-name" placeholder="e.g. Murphy's Hardware Ltd" autocomplete="off" list="client-list">
+            <datalist id="client-list"></datalist>
+          </label>
+          <label class="field">
+            <span>Client VAT number <small>(optional)</small></span>
+            <input type="text" id="f-client-vat" autocomplete="off">
+          </label>
+        </div>
+        <label class="field">
+          <span>Client address &amp; contact</span>
+          <textarea id="f-client-address" rows="3" placeholder="Unit 4, Business Park&#10;accounts@client.com"></textarea>
+        </label>
+        <div class="inline-note" id="client-saved-note" hidden>Client saved — it will autofill next time you type their name.</div>
+      </div>
+    </details>
+
+    <details class="ed-group" open>
+      <summary>Line items</summary>
+      <div class="ed-body">
+        <div class="items-head" aria-hidden="true">
+          <span>Description</span><span>Qty</span><span>Unit price</span><span>VAT %</span><span></span>
+        </div>
+        <div id="items-list"></div>
+        <button type="button" id="btn-add-item" class="btn ghost wide">+ Add line item</button>
+        <div class="field-row">
+          <label class="field">
+            <span>Discount</span>
+            <div class="joined">
+              <input type="number" id="f-discount" min="0" step="0.01" value="0" inputmode="decimal">
+              <select id="f-discount-type" aria-label="Discount type">
+                <option value="percent">%</option>
+                <option value="fixed">amount</option>
+              </select>
+            </div>
+          </label>
+          <label class="field">
+            <span>Default VAT % for new lines</span>
+            <input type="number" id="f-default-vat" min="0" max="100" step="0.1" value="23" inputmode="decimal">
+          </label>
+        </div>
+      </div>
+    </details>
+
+    <details class="ed-group">
+      <summary>Payment details &amp; notes</summary>
+      <div class="ed-body">
+        <label class="field">
+          <span>How to pay you <small>(shows on invoices &amp; receipts)</small></span>
+          <textarea id="f-payment" rows="3" placeholder="Bank: AIB&#10;IBAN: IE00 AIBK 0000 0000 0000 00&#10;BIC: AIBKIE2D"></textarea>
+        </label>
+        <label class="field">
+          <span>Notes / terms</span>
+          <textarea id="f-notes" rows="3" placeholder="Payment due within 14 days. Thank you for your business!"></textarea>
+        </label>
+      </div>
+    </details>
+
+    <div class="editor-foot">
+      <button type="button" id="btn-convert" class="btn ghost" hidden>Convert quote → invoice</button>
+      <span class="autosave-note" id="autosave-note">Draft autosaves in your browser</span>
+    </div>
+  </section>
+
+  <!-- ============ PREVIEW ============ -->
+  <section class="preview-pane" id="preview-pane" aria-label="Document preview">
+    <div class="sheet-scaler" id="sheet-scaler">
+      <article class="sheet" id="sheet">
+        <header class="s-head">
+          <div class="s-brandcol">
+            <img id="s-logo" class="s-logo" alt="" hidden>
+            <h2 class="s-bizname" id="s-bizname">Your Business</h2>
+            <div class="s-bizmeta" id="s-bizaddress"></div>
+            <div class="s-bizmeta" id="s-bizvat"></div>
+          </div>
+          <div class="s-doccol">
+            <h1 class="s-doctitle" id="s-doctitle">INVOICE</h1>
+            <table class="s-meta">
+              <tr><th id="s-numlabel">Invoice no.</th><td id="s-number">INV-001</td></tr>
+              <tr><th>Date</th><td id="s-date"></td></tr>
+              <tr id="s-due-row"><th id="s-duelabel">Due</th><td id="s-due"></td></tr>
+              <tr id="s-ref-row" hidden><th>Ref</th><td id="s-reference"></td></tr>
+            </table>
+          </div>
+        </header>
+
+        <section class="s-parties">
+          <div class="s-billto">
+            <h3 id="s-billto-label">Billed to</h3>
+            <strong id="s-clientname">Client name</strong>
+            <div class="s-bizmeta" id="s-clientaddress"></div>
+            <div class="s-bizmeta" id="s-clientvat"></div>
+          </div>
+          <div class="s-paid-stamp" id="s-paid-stamp" hidden>PAID</div>
+        </section>
+
+        <table class="s-items">
+          <thead>
+            <tr><th class="c-desc">Description</th><th class="c-qty">Qty</th><th class="c-price">Unit price</th><th class="c-vat">VAT</th><th class="c-amount">Amount</th></tr>
+          </thead>
+          <tbody id="s-items-body"></tbody>
+        </table>
+
+        <section class="s-totals-wrap">
+          <div class="s-notescol">
+            <div id="s-payment-block" hidden>
+              <h3>Payment details</h3>
+              <div class="s-bizmeta" id="s-payment"></div>
+            </div>
+            <div id="s-notes-block" hidden>
+              <h3>Notes</h3>
+              <div class="s-bizmeta" id="s-notes"></div>
+            </div>
+          </div>
+          <table class="s-totals">
+            <tr><th>Subtotal</th><td id="s-subtotal"></td></tr>
+            <tr id="s-discount-row" hidden><th id="s-discount-label">Discount</th><td id="s-discount"></td></tr>
+            <tbody id="s-vat-rows"></tbody>
+            <tr class="s-grand"><th id="s-total-label">Total due</th><td id="s-total"></td></tr>
+          </table>
+        </section>
+
+        <footer class="s-foot">
+          <span id="s-foot-thanks">Thank you for your business.</span>
+          <span class="s-madewith" id="s-madewith">Made free with TidyInvoice</span>
+        </footer>
+      </article>
+    </div>
+  </section>
+</main>
+
+<!-- ============ HISTORY DRAWER ============ -->
+<div class="drawer-backdrop no-print" id="drawer-backdrop" hidden></div>
+<aside class="drawer no-print" id="history-drawer" aria-label="Saved documents" hidden>
+  <header class="drawer-head">
+    <h2>Saved documents</h2>
+    <button type="button" class="btn ghost tiny" id="btn-close-history">Close</button>
+  </header>
+  <p class="drawer-hint">Stored only in this browser. Clearing browser data removes them — download PDFs you need to keep.</p>
+  <ul id="history-list" class="history-list"></ul>
+  <p class="drawer-empty" id="history-empty">Nothing saved yet. Hit <strong>Save</strong> to keep a document here.</p>
+</aside>
+
+<!-- ============ LANDING / SEO CONTENT ============ -->
+<section class="landing no-print">
+  <div class="landing-inner">
+    <h2>Invoices without the faff</h2>
+    <div class="landing-cols">
+      <div>
+        <h3>No signup, no upload</h3>
+        <p>Everything happens in your browser. Your client list, your numbers, your logo — none of it is sent anywhere. Close the tab and it's still here when you come back.</p>
+      </div>
+      <div>
+        <h3>VAT done properly</h3>
+        <p>Per-line VAT rates with an automatic breakdown by rate on the document — the format accountants and Revenue expect. Works for Irish, UK and EU rates, or set 0% and forget it.</p>
+      </div>
+      <div>
+        <h3>Quotes become invoices</h3>
+        <p>Send a quote, win the job, convert it to an invoice in one click. Numbering stays sequential automatically. Mark it paid and issue a receipt from the same screen.</p>
+      </div>
+    </div>
+
+    <div class="faq">
+      <h2>Common questions</h2>
+      <details><summary>Is TidyInvoice really free?</summary><p>Yes. The generator is free with no watermark tricks and no locked essentials. If it saves you time, a Pro supporter upgrade with extra templates is planned — but invoicing itself will stay free.</p></details>
+      <details><summary>Where is my data stored?</summary><p>In your browser's local storage on your own device. Nothing is uploaded. That also means: clear your browser data and it's gone, so download PDFs of anything important.</p></details>
+      <details><summary>How do I get a PDF?</summary><p>Click <strong>Download PDF</strong> and choose “Save as PDF” as the destination. Every modern browser has this built in — the document is laid out to fit an A4 page exactly.</p></details>
+      <details><summary>Does it work for my country?</summary><p>Yes — pick your currency, set your VAT/GST/sales-tax rates per line (or 0%), and add your own tax number field. Nothing about it is locked to one country.</p></details>
+      <details><summary>Can I use it on my phone?</summary><p>Yes. The editor and preview stack on small screens, and PDF export works from mobile browsers too.</p></details>
+    </div>
+  </div>
+  <footer class="site-foot">
+    <span>© <span id="foot-year"></span> TidyInvoice · A <a href="#" rel="noopener">GreenSquare</a> project</span>
+    <span>Your data stays on your device.</span>
+  </footer>
+</section>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type":"Question","name":"Is TidyInvoice really free?","acceptedAnswer":{"@type":"Answer","text":"Yes. The generator is free with no watermark tricks and no locked essentials."}},
+    {"@type":"Question","name":"Where is my data stored?","acceptedAnswer":{"@type":"Answer","text":"In your browser's local storage on your own device. Nothing is uploaded."}},
+    {"@type":"Question","name":"How do I get a PDF?","acceptedAnswer":{"@type":"Answer","text":"Click Download PDF and choose Save as PDF. The document fits an A4 page exactly."}},
+    {"@type":"Question","name":"Does it work for my country?","acceptedAnswer":{"@type":"Answer","text":"Yes — pick your currency and set your VAT, GST or sales-tax rates per line."}}
+  ]
+}
+</script>
+
+<script src="app.js"></script>
+</body>
+</html>
