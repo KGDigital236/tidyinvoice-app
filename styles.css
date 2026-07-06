@@ -213,6 +213,44 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--in
 .joined input { border-radius: 7px 0 0 7px; border-right: 0; flex: 1; }
 .joined select { border: 1px solid var(--line); border-radius: 0 7px 7px 0; padding: 8px; background: var(--field-bg); color: var(--ink); }
 
+/* custom number steppers — native spin buttons hidden, chevrons instead */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+
+.stepper { position: relative; display: flex; flex: 1; min-width: 0; }
+.stepper input { padding-right: 26px; }
+.joined .stepper { flex: 1; }
+.step-btns {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.step-btns button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  width: 18px;
+  height: 12px;
+  cursor: pointer;
+  color: var(--ink-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  opacity: .55;
+  transition: opacity .12s, color .12s, background .12s;
+}
+.stepper:hover .step-btns button,
+.stepper:focus-within .step-btns button { opacity: 1; }
+.step-btns button:hover { color: var(--accent); background: var(--accent-soft); }
+.step-btns button:active { transform: translateY(1px); }
+.step-btns svg { display: block; }
+
 .layout-btns { display: flex; gap: 6px; padding-top: 2px; }
 .layout-btns button {
   border: 1px solid var(--line);
@@ -231,6 +269,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--in
 }
 .layout-btns button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+.shared-banner[hidden] { display: none; }
 .shared-banner {
   border: 1px solid var(--accent);
   background: var(--accent-soft);
@@ -618,6 +657,9 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--in
   .field-row { flex-direction: column; gap: 0; }
   .items-head { grid-template-columns: 1fr 44px 72px 52px 26px; }
   .item-row { grid-template-columns: 1fr 44px 72px 52px 26px; }
+  /* arrows don't fit 44px inputs — mobile users type instead */
+  .item-row .step-btns { display: none; }
+  .item-row .stepper input { padding-right: 9px; }
 }
 
 /* ============ PRINT ============ */

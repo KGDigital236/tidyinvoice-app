@@ -286,7 +286,41 @@
       row.append(desc, qty, price, vat, del);
       list.appendChild(row);
     });
+    enhanceSteppers(list);
   }
+
+  // ---------- custom number steppers ----------
+  function enhanceSteppers(root) {
+    (root || document).querySelectorAll('input[type="number"]').forEach(function (inp) {
+      if (inp.closest(".stepper")) return;
+      var wrap = document.createElement("div");
+      wrap.className = "stepper";
+      inp.parentNode.insertBefore(wrap, inp);
+      wrap.appendChild(inp);
+      var btns = document.createElement("div");
+      btns.className = "step-btns";
+      btns.innerHTML =
+        '<button type="button" tabindex="-1" aria-label="Increase" data-step="1">' +
+          '<svg width="9" height="6" viewBox="0 0 9 6" aria-hidden="true"><path d="M1.2 4.6 4.5 1.4l3.3 3.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+        "</button>" +
+        '<button type="button" tabindex="-1" aria-label="Decrease" data-step="-1">' +
+          '<svg width="9" height="6" viewBox="0 0 9 6" aria-hidden="true"><path d="M1.2 1.4 4.5 4.6l3.3-3.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+        "</button>";
+      wrap.appendChild(btns);
+    });
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".step-btns button");
+    if (!b) return;
+    var inp = b.closest(".stepper").querySelector("input");
+    if (!inp || inp.disabled) return;
+    var v = num(inp.value) + (+b.dataset.step); // arrows step whole units; decimals are typed
+    var min = inp.min !== "" ? parseFloat(inp.min) : -Infinity;
+    var max = inp.max !== "" ? parseFloat(inp.max) : Infinity;
+    v = Math.min(Math.max(v, min), max);
+    inp.value = Math.round(v * 100) / 100;
+    inp.dispatchEvent(new Event("input", { bubbles: true }));
+  });
 
   // ---------- totals ----------
   function calcTotals() {
@@ -339,7 +373,7 @@
     $("s-reference").textContent = doc.reference;
 
     $("s-bizname").textContent = biz.bizName || "Your Business";
-    $("s-bizaddress").textContent = biz.bizAddress;
+    $("s-bizaddress").textContent = biz.bizAddress || "";
     $("s-bizvat").textContent = biz.bizVat ? L.vat + ": " + biz.bizVat : "";
 
     var logo = $("s-logo");
@@ -558,6 +592,7 @@
     if (!settings.counters) settings.counters = { invoice: 1, quote: 1, receipt: 1 };
     if (doc.number === autoNumber(doc.type)) {
       settings.counters[doc.type] = (settings.counters[doc.type] || 1) + 1;
+      $("f-next-number").value = settings.counters[doc.type]; // keep field in sync or the next input writes the stale value back
     }
 
     upsertClient();
@@ -1118,6 +1153,7 @@
     });
   }
   applyUITheme();
+  enhanceSteppers();
   $("foot-year").textContent = new Date().getFullYear();
   if (isDemo) {
     var note = $("autosave-note");
