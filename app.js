@@ -954,8 +954,16 @@
     render();
   });
 
+  function hasContent(d) {
+    return !!(d.client.name.trim() || d.items.some(function (it) {
+      return (it.desc && String(it.desc).trim()) || num(it.price) > 0;
+    }));
+  }
+
   $("btn-new").addEventListener("click", function () {
     readEditor();
+    // never lose work: anything with real content is kept in Saved as a draft
+    if (!sharedView && !isDemo && hasContent(doc)) saveDocument();
     doc = newDoc(doc.type);
     savedId = null;
     fillEditor();
