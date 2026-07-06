@@ -208,7 +208,15 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--in
 
 .joined { display: flex; gap: 0; }
 .joined input { border-radius: 7px 0 0 7px; border-right: 0; flex: 1; }
-.joined select { border: 1px solid var(--line); border-radius: 0 7px 7px 0; padding: 8px; background: var(--field-bg); color: var(--ink); }
+.joined select {
+  border: 1px solid var(--line);
+  border-radius: 0 7px 7px 0;
+  padding: 8px;
+  background: var(--field-bg);
+  color: var(--ink);
+  width: auto; /* .field select is width:100% — that full-width flex basis collapses the joined input to 0 */
+  flex: 0 0 auto;
+}
 
 /* custom number steppers — native spin buttons hidden, chevrons instead */
 input[type="number"]::-webkit-outer-spin-button,
@@ -216,8 +224,11 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
 .stepper { position: relative; display: flex; flex: 1; min-width: 0; }
-.stepper input { padding-right: 26px; }
+.stepper input,
+.field .stepper input[type="number"] { padding-right: 26px; }
 .joined .stepper { flex: 1; }
+.item-row .stepper input { padding-right: 20px; }
+.item-row .step-btns { right: 1px; }
 .step-btns {
   position: absolute;
   right: 4px;
