@@ -820,6 +820,9 @@
 
   // ---------- preview scaling ----------
   function scalePreview() {
+    // keep the mobile tab bar stuck just below the (wrapping) top bar
+    var tb = document.querySelector(".topbar");
+    if (tb) document.documentElement.style.setProperty("--topbar-h", tb.offsetHeight + "px");
     var pane = $("preview-pane");
     var scaler = $("sheet-scaler");
     if (pane.clientWidth === 0) return; // hidden (mobile edit view) — skip

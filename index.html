@@ -9,10 +9,16 @@
 <meta property="og:title" content="TidyInvoice — Free Invoice, Quote &amp; Receipt Generator">
 <meta property="og:description" content="Professional invoices in seconds. VAT-ready. No signup. Data stays in your browser.">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="TidyInvoice">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="TidyInvoice — Free Invoice, Quote &amp; Receipt Generator">
+<meta name="twitter:description" content="Professional invoices in seconds. VAT-ready. No signup. Data stays in your browser.">
+<!-- TODO once deployed: <link rel="canonical" href="https://YOUR-DOMAIN/"> and og:url + og:image -->
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231e6f50'/%3E%3Cpath d='M9 10h14M9 16h14M9 22h8' stroke='%23f5f2ea' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1e6f50">
-<link rel="stylesheet" href="styles.css?v=8">
+<link rel="stylesheet" href="styles.css?v=9">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -26,6 +32,7 @@
 </script>
 </head>
 <body>
+<noscript><p class="noscript-note">TidyInvoice runs entirely in your browser and needs JavaScript turned on — nothing is sent to any server.</p></noscript>
 
 <header class="topbar no-print">
   <div class="brand">
@@ -279,12 +286,12 @@
         <header class="s-head">
           <div class="s-brandcol">
             <img id="s-logo" class="s-logo" alt="" hidden>
-            <h2 class="s-bizname" id="s-bizname">Your Business</h2>
+            <div class="s-bizname" id="s-bizname" role="heading" aria-level="3">Your Business</div>
             <div class="s-bizmeta" id="s-bizaddress"></div>
             <div class="s-bizmeta" id="s-bizvat"></div>
           </div>
           <div class="s-doccol">
-            <h1 class="s-doctitle" id="s-doctitle">INVOICE</h1>
+            <div class="s-doctitle" id="s-doctitle" role="heading" aria-level="2">INVOICE</div>
             <table class="s-meta">
               <tr><th id="s-numlabel">Invoice no.</th><td id="s-number">INV-001</td></tr>
               <tr><th id="s-date-label">Date</th><td id="s-date"></td></tr>
@@ -296,7 +303,7 @@
 
         <section class="s-parties">
           <div class="s-billto">
-            <h3 id="s-billto-label">Billed to</h3>
+            <div class="s-minihead" id="s-billto-label" role="heading" aria-level="3">Billed to</div>
             <strong id="s-clientname">Client name</strong>
             <div class="s-bizmeta" id="s-clientaddress"></div>
             <div class="s-bizmeta" id="s-clientvat"></div>
@@ -314,11 +321,11 @@
         <section class="s-totals-wrap">
           <div class="s-notescol">
             <div id="s-payment-block" hidden>
-              <h3 id="s-payment-title">Payment details</h3>
+              <div class="s-minihead" id="s-payment-title" role="heading" aria-level="3">Payment details</div>
               <div class="s-bizmeta" id="s-payment"></div>
             </div>
             <div id="s-notes-block" hidden>
-              <h3 id="s-notes-title">Notes</h3>
+              <div class="s-minihead" id="s-notes-title" role="heading" aria-level="3">Notes</div>
               <div class="s-bizmeta" id="s-notes"></div>
             </div>
           </div>
@@ -361,7 +368,8 @@
 <!-- ============ LANDING / SEO CONTENT ============ -->
 <section class="landing no-print">
   <div class="landing-inner">
-    <h2>Invoices without the faff</h2>
+    <h1>Free invoice generator — no signup, no upload</h1>
+    <p class="landing-intro">TidyInvoice is a free invoice, quote and receipt generator for sole traders, freelancers and small businesses. Build a VAT-ready invoice in your browser and download it as a PDF in seconds — no account, no watermark tricks, and your data never leaves your device.</p>
     <div class="landing-cols">
       <div>
         <h3>No signup, no upload</h3>
@@ -402,11 +410,12 @@
     {"@type":"Question","name":"Where is my data stored?","acceptedAnswer":{"@type":"Answer","text":"In your browser's local storage on your own device. Nothing is uploaded."}},
     {"@type":"Question","name":"How do I get a PDF?","acceptedAnswer":{"@type":"Answer","text":"Click Download PDF and choose Save as PDF. The document fits an A4 page exactly."}},
     {"@type":"Question","name":"Does it work for my country?","acceptedAnswer":{"@type":"Answer","text":"Yes — pick your currency and set your VAT, GST or sales-tax rates per line."}},
-    {"@type":"Question","name":"Can I send invoices in other languages?","acceptedAnswer":{"@type":"Answer","text":"Yes — documents can be generated in English, French, German or Spanish, dates included."}}
+    {"@type":"Question","name":"Can I send invoices in other languages?","acceptedAnswer":{"@type":"Answer","text":"Yes — documents can be generated in English, French, German or Spanish, dates included."}},
+    {"@type":"Question","name":"Can I use it on my phone?","acceptedAnswer":{"@type":"Answer","text":"Yes. The editor and preview stack on small screens, and PDF export works from mobile browsers too."}}
   ]
 }
 </script>
 
-<script src="app.js?v=8"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>
