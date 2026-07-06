@@ -290,9 +290,14 @@
     <h2>Saved documents</h2>
     <button type="button" class="btn ghost tiny" id="btn-close-history">Close</button>
   </header>
-  <p class="drawer-hint">Stored only in this browser. Clearing browser data removes them — download PDFs you need to keep.</p>
+  <p class="drawer-hint">Stored only in this browser. Clearing browser data removes them — download PDFs you need to keep, or use <strong>Export backup</strong> below.</p>
   <ul id="history-list" class="history-list"></ul>
   <p class="drawer-empty" id="history-empty">Nothing saved yet. Hit <strong>Save</strong> to keep a document here.</p>
+  <div class="drawer-backup">
+    <button type="button" id="btn-export" class="btn ghost tiny">Export backup</button>
+    <button type="button" id="btn-import" class="btn ghost tiny">Import backup</button>
+    <input type="file" id="f-import" accept="application/json,.json" hidden>
+  </div>
 </aside>
 
 <!-- ============ LANDING / SEO CONTENT ============ -->

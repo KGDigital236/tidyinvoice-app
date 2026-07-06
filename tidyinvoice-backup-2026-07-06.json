@@ -1,0 +1,59 @@
+{
+  "app": "tidyinvoice",
+  "version": 1,
+  "exportedAt": "2026-07-06T20:06:52.481Z",
+  "settings": {
+    "bizName": "Import Test Co",
+    "counters": {
+      "invoice": 5,
+      "quote": 1,
+      "receipt": 1
+    },
+    "defaultVat": 13.5,
+    "currency": "EUR",
+    "theme": "ocean",
+    "bizVat": "",
+    "bizAddress": "",
+    "logo": "",
+    "payment": "",
+    "notes": ""
+  },
+  "docs": [
+    {
+      "id": "d_test",
+      "type": "invoice",
+      "number": "INV-004",
+      "currency": "EUR",
+      "date": "2026-07-01",
+      "due": "2026-07-15",
+      "reference": "",
+      "theme": "ocean",
+      "client": {
+        "name": "Imported Client",
+        "vat": "",
+        "address": ""
+      },
+      "items": [
+        {
+          "desc": "Imported job",
+          "qty": 1,
+          "price": 250,
+          "vat": 13.5
+        }
+      ],
+      "discount": 0,
+      "discountType": "percent",
+      "payment": "",
+      "notes": "",
+      "status": "sent",
+      "totalSnapshot": 283.75
+    }
+  ],
+  "clients": [
+    {
+      "name": "Imported Client",
+      "vat": "",
+      "address": ""
+    }
+  ]
+}

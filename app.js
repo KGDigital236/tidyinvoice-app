@@ -549,6 +549,56 @@
     renderHistory();
   }
 
+  // ---------- backup export / import ----------
+  $("btn-export").addEventListener("click", function () {
+    var payload = {
+      app: "tidyinvoice",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      settings: settings,
+      docs: docs,
+      clients: clients
+    };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "tidyinvoice-backup-" + todayISO(0) + ".json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+  });
+
+  $("btn-import").addEventListener("click", function () { $("f-import").click(); });
+  $("f-import").addEventListener("change", function () {
+    var file = this.files && this.files[0];
+    this.value = "";
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var data;
+      try { data = JSON.parse(reader.result); } catch (e) { data = null; }
+      if (!data || data.app !== "tidyinvoice" || !Array.isArray(data.docs)) {
+        alert("That doesn't look like a TidyInvoice backup file.");
+        return;
+      }
+      if (!confirm("Import backup? This replaces the " + docs.length + " document(s) and settings currently in this browser.")) return;
+      settings = data.settings || settings;
+      docs = data.docs;
+      clients = Array.isArray(data.clients) ? data.clients : clients;
+      save(LS.settings, settings);
+      save(LS.docs, docs);
+      save(LS.clients, clients);
+      doc = newDoc(doc.type);
+      savedId = null;
+      fillEditor();
+      render();
+      renderHistory();
+      persistDraft();
+    };
+    reader.readAsText(file);
+  });
+
   function openHistory() {
     renderHistory();
     $("history-drawer").hidden = false;
