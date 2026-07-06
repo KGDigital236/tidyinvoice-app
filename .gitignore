@@ -1,0 +1,4 @@
+*.json.bak
+tidyinvoice-backup-*.json
+Thumbs.db
+desktop.ini
