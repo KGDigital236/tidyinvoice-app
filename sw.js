@@ -1,5 +1,5 @@
-/* TidyInvoice service worker — cache-first so the app works offline. */
-var CACHE = "tidyinvoice-v6";
+/* TidyInvoice service worker — network-first; cache is only the offline fallback. */
+var CACHE = "tidyinvoice-v7";
 var ASSETS = ["./", "index.html", "styles.css", "app.js", "manifest.json", "icon.svg"];
 
 self.addEventListener("install", function (e) {
@@ -19,16 +19,16 @@ self.addEventListener("activate", function (e) {
 self.addEventListener("fetch", function (e) {
   if (e.request.method !== "GET") return;
   e.respondWith(
-    caches.match(e.request, { ignoreSearch: true }).then(function (hit) {
-      // serve cache, refresh in background
-      var fetched = fetch(e.request).then(function (res) {
-        if (res && res.ok) {
-          var copy = res.clone();
-          caches.open(CACHE).then(function (c) { c.put(e.request, copy); });
-        }
-        return res;
-      }).catch(function () { return hit; });
-      return hit || fetched;
+    // network first (bypassing HTTP cache) so users always run current code;
+    // fall back to the cached copy only when offline
+    fetch(e.request, { cache: "no-cache" }).then(function (res) {
+      if (res && res.ok) {
+        var copy = res.clone();
+        caches.open(CACHE).then(function (c) { c.put(e.request, copy); });
+      }
+      return res;
+    }).catch(function () {
+      return caches.match(e.request, { ignoreSearch: true });
     })
   );
 });

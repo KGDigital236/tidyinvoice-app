@@ -604,6 +604,21 @@
     flashSaved();
   }
 
+  function toast(msg) {
+    var t = $("toast");
+    if (!t) {
+      t = document.createElement("div");
+      t.id = "toast";
+      t.className = "no-print";
+      t.setAttribute("role", "status");
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { t.classList.remove("show"); }, 2600);
+  }
+
   function flashSaved() {
     var btn = $("btn-save");
     var old = btn.textContent;
@@ -968,7 +983,11 @@
   $("btn-new").addEventListener("click", function () {
     readEditor();
     // never lose work: anything with real content is kept in Saved as a draft
-    if (!sharedView && !isDemo && hasContent(doc)) saveDocument();
+    if (!sharedView && !isDemo && hasContent(doc)) {
+      var keptNumber = doc.number;
+      saveDocument();
+      toast(keptNumber + " kept as a draft — it's under Saved");
+    }
     doc = newDoc(doc.type);
     savedId = null;
     fillEditor();
