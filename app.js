@@ -630,10 +630,6 @@
       var numEl = document.createElement("span");
       numEl.className = "hi-number";
       numEl.textContent = d.number;
-      var status = document.createElement("span");
-      status.className = "hi-status " + d.status;
-      status.textContent = d.status;
-      numEl.appendChild(status);
       var totalEl = document.createElement("span");
       totalEl.className = "hi-total";
       totalEl.textContent = money(d.totalSnapshot || 0, d.currency);
@@ -643,12 +639,24 @@
       client.className = "hi-client";
       client.textContent = (d.client.name || "No client") + " · " + fmtDate(d.date);
 
+      var statusSel = document.createElement("select");
+      statusSel.className = "hi-status-select " + d.status;
+      statusSel.setAttribute("aria-label", "Status of " + d.number);
+      ["draft", "sent", "paid"].forEach(function (s) {
+        var o = document.createElement("option");
+        o.value = s;
+        o.textContent = s.charAt(0).toUpperCase() + s.slice(1);
+        if (s === d.status) o.selected = true;
+        statusSel.appendChild(o);
+      });
+      statusSel.addEventListener("change", function () { setStatus(d.id, this.value); });
+
       var actions = document.createElement("div");
       actions.className = "hi-actions";
       actions.append(
         miniBtn("Open", function () { loadDoc(d.id); }),
         miniBtn("Duplicate", function () { duplicateDoc(d.id); }),
-        miniBtn(nextStatusLabel(d.status), function () { cycleStatus(d.id); }),
+        statusSel,
         miniBtn("Delete", function () { deleteDoc(d.id); }, true)
       );
 
@@ -664,15 +672,12 @@
     b.addEventListener("click", fn);
     return b;
   }
-  function nextStatusLabel(s) {
-    return s === "draft" ? "Mark sent" : s === "sent" ? "Mark paid" : "Mark draft";
-  }
-  function cycleStatus(id) {
+  function setStatus(id, status) {
     var d = docs.find(function (x) { return x.id === id; });
-    if (!d) return;
-    d.status = d.status === "draft" ? "sent" : d.status === "sent" ? "paid" : "draft";
+    if (!d || ["draft", "sent", "paid"].indexOf(status) < 0) return;
+    d.status = status;
     save(LS.docs, docs);
-    if (savedId === id) { doc.status = d.status; render(); persistDraft(); }
+    if (savedId === id) { doc.status = status; render(); persistDraft(); }
     renderHistory();
   }
   function loadDoc(id) {
@@ -1170,6 +1175,13 @@
   }
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")) {
     navigator.serviceWorker.register("sw.js").catch(function () { /* offline support is optional */ });
+    // when an updated service worker takes over, reload once so new code actually runs
+    var swReloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", function () {
+      if (swReloaded) return;
+      swReloaded = true;
+      location.reload();
+    });
   }
   fillEditor();
   render();

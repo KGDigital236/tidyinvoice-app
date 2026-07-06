@@ -1,5 +1,5 @@
 /* TidyInvoice service worker — cache-first so the app works offline. */
-var CACHE = "tidyinvoice-v5";
+var CACHE = "tidyinvoice-v6";
 var ASSETS = ["./", "index.html", "styles.css", "app.js", "manifest.json", "icon.svg"];
 
 self.addEventListener("install", function (e) {
