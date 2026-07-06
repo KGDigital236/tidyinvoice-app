@@ -199,6 +199,10 @@
     <details class="ed-group">
       <summary>Payment details &amp; notes</summary>
       <div class="ed-body">
+        <label class="field" id="wrap-paid">
+          <span>Already paid <small>(deposit — shows balance due)</small></span>
+          <input type="number" id="f-paid" min="0" step="0.01" value="0" inputmode="decimal">
+        </label>
         <label class="field">
           <span>How to pay you <small>(shows on invoices &amp; receipts)</small></span>
           <textarea id="f-payment" rows="3" placeholder="Bank: AIB&#10;IBAN: IE00 AIBK 0000 0000 0000 00&#10;BIC: AIBKIE2D"></textarea>
@@ -270,6 +274,7 @@
             <tr><th>Subtotal</th><td id="s-subtotal"></td></tr>
             <tr id="s-discount-row" hidden><th id="s-discount-label">Discount</th><td id="s-discount"></td></tr>
             <tbody id="s-vat-rows"></tbody>
+            <tr id="s-paid-row" hidden><th>Paid to date</th><td id="s-paid"></td></tr>
             <tr class="s-grand"><th id="s-total-label">Total due</th><td id="s-total"></td></tr>
           </table>
         </section>
@@ -296,6 +301,7 @@
   <div class="drawer-backup">
     <button type="button" id="btn-export" class="btn ghost tiny">Export backup</button>
     <button type="button" id="btn-import" class="btn ghost tiny">Import backup</button>
+    <button type="button" id="btn-csv" class="btn ghost tiny">CSV for accountant</button>
     <input type="file" id="f-import" accept="application/json,.json" hidden>
   </div>
 </aside>

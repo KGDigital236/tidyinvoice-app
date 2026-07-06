@@ -2,6 +2,9 @@
 (function () {
   "use strict";
 
+  // demo mode: sample data, no persistence
+  var isDemo = /[?&]demo\b/.test(location.search);
+
   // ---------- storage keys ----------
   var LS = {
     settings: "tidyinvoice_settings",
@@ -103,6 +106,7 @@
       items: [blankItem()],
       discount: 0,
       discountType: "percent",
+      amountPaid: 0,
       payment: settings.payment || "",
       notes: settings.notes || "",
       status: "draft"
@@ -113,7 +117,8 @@
   }
   function autoNumber(type) {
     var meta = TYPE_META[type];
-    return meta.prefix + "-" + pad(settings.counters[type] || 1);
+    var count = (settings.counters && settings.counters[type]) || 1;
+    return meta.prefix + "-" + pad(count);
   }
 
   // ---------- editor <-> doc binding ----------
@@ -131,6 +136,7 @@
     $("f-client-address").value = doc.client.address;
     $("f-discount").value = doc.discount;
     $("f-discount-type").value = doc.discountType;
+    $("f-paid").value = doc.amountPaid || 0;
     $("f-default-vat").value = settings.defaultVat;
     $("f-payment").value = doc.payment;
     $("f-notes").value = doc.notes;
@@ -155,6 +161,7 @@
     doc.client.address = $("f-client-address").value;
     doc.discount = num($("f-discount").value);
     doc.discountType = $("f-discount-type").value;
+    doc.amountPaid = num($("f-paid").value);
     settings.defaultVat = num($("f-default-vat").value);
     doc.payment = $("f-payment").value;
     doc.notes = $("f-notes").value;
@@ -237,7 +244,8 @@
     var vatTotal = 0;
     Object.keys(vatByRate).forEach(function (r) { vatTotal += vatByRate[r]; });
     var total = subtotal - discountAmt + vatTotal;
-    return { subtotal: subtotal, discountAmt: discountAmt, vatByRate: vatByRate, total: total };
+    var paid = doc.type === "invoice" ? Math.min(num(doc.amountPaid), total) : 0;
+    return { subtotal: subtotal, discountAmt: discountAmt, vatByRate: vatByRate, total: total, paid: paid, balance: total - paid };
   }
 
   // ---------- preview render ----------
@@ -321,8 +329,10 @@
       tr.append(th, td);
       vatRows.appendChild(tr);
     });
-    $("s-total-label").textContent = meta.totalLabel;
-    $("s-total").textContent = money(t.total, cur);
+    $("s-paid-row").hidden = t.paid <= 0;
+    if (t.paid > 0) $("s-paid").textContent = "−" + money(t.paid, cur);
+    $("s-total-label").textContent = t.paid > 0 ? "Balance due" : meta.totalLabel;
+    $("s-total").textContent = money(t.paid > 0 ? t.balance : t.total, cur);
 
     // payment / notes blocks
     $("s-payment-block").hidden = !(doc.payment.trim() && doc.type !== "quote");
@@ -352,6 +362,7 @@
   // ---------- type / theme / logo UI sync ----------
   function syncTypeUI() {
     var meta = TYPE_META[doc.type];
+    $("wrap-paid").style.display = doc.type === "invoice" ? "" : "none";
     document.querySelectorAll(".doc-type-switch button").forEach(function (b) {
       var on = b.dataset.doctype === doc.type;
       b.classList.toggle("is-on", on);
@@ -389,8 +400,9 @@
     if (!name) return;
     var existing = clients.find(function (c) { return c.name.toLowerCase() === name.toLowerCase(); });
     if (existing) {
-      existing.vat = doc.client.vat;
-      existing.address = doc.client.address;
+      // never wipe saved details with blanks
+      if (doc.client.vat) existing.vat = doc.client.vat;
+      if (doc.client.address) existing.address = doc.client.address;
     } else {
       clients.push({ name: name, vat: doc.client.vat, address: doc.client.address });
     }
@@ -431,6 +443,7 @@
     savedId = doc.id;
 
     // bump counter when the auto number for this type was used
+    if (!settings.counters) settings.counters = { invoice: 1, quote: 1, receipt: 1 };
     if (doc.number === autoNumber(doc.type)) {
       settings.counters[doc.type] = (settings.counters[doc.type] || 1) + 1;
     }
@@ -569,11 +582,32 @@
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
   });
 
+  $("btn-csv").addEventListener("click", function () {
+    if (docs.length === 0) { alert("Nothing saved yet — save a document first."); return; }
+    function esc(v) { return '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; }
+    var rows = [["Number", "Type", "Status", "Date", "Due", "Client", "Currency", "Total"].join(",")];
+    docs.forEach(function (d) {
+      rows.push([
+        esc(d.number), esc(d.type), esc(d.status), esc(d.date), esc(d.due || ""),
+        esc(d.client && d.client.name), esc(d.currency), (d.totalSnapshot || 0).toFixed(2)
+      ].join(","));
+    });
+    var blob = new Blob(["﻿" + rows.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "tidyinvoice-documents-" + todayISO(0) + ".csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+  });
+
   $("btn-import").addEventListener("click", function () { $("f-import").click(); });
   $("f-import").addEventListener("change", function () {
     var file = this.files && this.files[0];
     this.value = "";
     if (!file) return;
+    if (isDemo) { alert("Demo mode — import is disabled. Open the app without ?demo to import."); return; }
     var reader = new FileReader();
     reader.onload = function () {
       var data;
@@ -583,7 +617,16 @@
         return;
       }
       if (!confirm("Import backup? This replaces the " + docs.length + " document(s) and settings currently in this browser.")) return;
-      settings = data.settings || settings;
+      // merge over defaults so a partial/old backup can't leave fields missing
+      settings = Object.assign({
+        bizName: "", bizVat: "", bizAddress: "", logo: "",
+        counters: { invoice: 1, quote: 1, receipt: 1 },
+        defaultVat: 23, currency: "EUR", theme: "forest",
+        payment: "", notes: ""
+      }, data.settings || {});
+      if (!settings.counters || typeof settings.counters !== "object") {
+        settings.counters = { invoice: 1, quote: 1, receipt: 1 };
+      }
       docs = data.docs;
       clients = Array.isArray(data.clients) ? data.clients : clients;
       save(LS.settings, settings);
@@ -630,9 +673,7 @@
     if (row) {
       var idx = +row.dataset.index;
       var field = t.dataset.field;
-      if (doc.items[idx] && field) {
-        doc.items[idx][field] = field === "desc" ? t.value : t.value;
-      }
+      if (doc.items[idx] && field) doc.items[idx][field] = t.value;
     }
     readEditor();
     render();
@@ -734,18 +775,25 @@
   $("drawer-backdrop").addEventListener("click", closeHistory);
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") closeHistory();
-    if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); saveDocument(); }
-    if ((e.ctrlKey || e.metaKey) && e.key === "p") { e.preventDefault(); printPDF(); }
+    var k = e.key && e.key.toLowerCase();
+    if ((e.ctrlKey || e.metaKey) && k === "s") { e.preventDefault(); saveDocument(); }
+    if ((e.ctrlKey || e.metaKey) && k === "p") { e.preventDefault(); printPDF(); }
   });
 
+  var titleBeforePrint = null;
   function printPDF() {
     readEditor();
     render();
-    var oldTitle = document.title;
+    if (titleBeforePrint === null) titleBeforePrint = document.title;
     document.title = (doc.number || "document") + (doc.client.name ? " — " + doc.client.name : "");
     window.print();
-    document.title = oldTitle;
+    // Safari's print dialog is async — restore on afterprint, with a fallback
+    setTimeout(restoreTitle, 3000);
   }
+  function restoreTitle() {
+    if (titleBeforePrint !== null) { document.title = titleBeforePrint; titleBeforePrint = null; }
+  }
+  window.addEventListener("afterprint", restoreTitle);
   $("btn-download").addEventListener("click", printPDF);
 
   $("btn-convert").addEventListener("click", function () {
@@ -780,7 +828,6 @@
   window.addEventListener("beforeprint", function () { readEditor(); render(); });
 
   // ---------- boot ----------
-  var isDemo = /[?&]demo\b/.test(location.search);
   var draft = isDemo ? null : load(LS.draft, null);
   if (isDemo) {
     doc = newDoc("invoice");
@@ -808,6 +855,11 @@
   }
   document.body.dataset.mview = "edit";
   $("foot-year").textContent = new Date().getFullYear();
+  if (isDemo) {
+    var note = $("autosave-note");
+    note.textContent = "Demo data — nothing saves in demo mode";
+    note.style.color = "var(--danger)";
+  }
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")) {
     navigator.serviceWorker.register("sw.js").catch(function () { /* offline support is optional */ });
   }
