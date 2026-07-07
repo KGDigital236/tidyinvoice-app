@@ -69,6 +69,18 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--in
   flex-wrap: wrap;
 }
 .brand { display: flex; align-items: center; gap: 9px; }
+.brand-btn {
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px 8px 4px 4px;
+  border-radius: 9px;
+  color: inherit;
+  font-family: inherit;
+  transition: background .15s, border-color .15s;
+}
+.brand-btn:hover { background: var(--btn-hover-bg); border-color: var(--btn-hover-border); }
+.brand-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .brand-mark { width: 26px; height: 26px; }
 .brand-name { font-weight: 700; font-size: 18px; letter-spacing: -0.3px; }
 .brand-name em { font-style: normal; color: var(--accent); }
@@ -921,6 +933,7 @@ body[data-ui="dark"] .hi-status-select.paid { background-color: #1e2c24; color: 
   .topbar-actions { margin-left: 0; width: 100%; flex-wrap: wrap; }
   .topbar-actions .btn { flex: 1 1 auto; padding: 8px 6px; min-width: 62px; }
   #btn-uitheme { flex: 0 0 auto; min-width: 44px; }
+  #btn-home-text { display: none; } /* logo is the home affordance on mobile */
   .field-row { flex-direction: column; gap: 0; }
   .items-head { grid-template-columns: 1fr 44px 72px 52px 26px; }
   .item-row { grid-template-columns: 1fr 44px 72px 52px 26px; }

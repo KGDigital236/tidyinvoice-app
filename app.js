@@ -579,6 +579,7 @@
     readEditor();
     if (!doc.number) { doc.number = autoNumber(doc.type); $("f-number").value = doc.number; }
 
+    var wasNew = !doc.id;
     if (!doc.id) doc.id = uid();
     doc.savedAt = Date.now();
     var totals = calcTotals();
@@ -603,6 +604,24 @@
     persistDraft();
     renderHistory();
     flashSaved();
+    return wasNew;
+  }
+
+  // Save from the toolbar: file the current doc, then — if it was a brand-new
+  // document — start a fresh one so the user can roll straight into the next.
+  // Editing an already-saved document just updates it in place (no surprise jump).
+  function saveFromToolbar() {
+    var savedType = doc.type;
+    var savedNumber = doc.number;
+    var wasNew = saveDocument();
+    if (wasNew && !isDemo) {
+      doc = newDoc(savedType);
+      savedId = null;
+      fillEditor();
+      render();
+      persistDraft();
+      toast(savedNumber + " saved — started " + doc.number);
+    }
   }
 
   function toast(msg) {
@@ -1008,7 +1027,7 @@
     persistDraft();
   });
 
-  $("btn-save").addEventListener("click", saveDocument);
+  $("btn-save").addEventListener("click", saveFromToolbar);
   $("btn-history").addEventListener("click", openHistory);
   $("btn-close-history").addEventListener("click", closeHistory);
   $("drawer-backdrop").addEventListener("click", closeHistory);
@@ -1019,7 +1038,7 @@
       else hideWelcome();
     }
     var k = e.key && e.key.toLowerCase();
-    if ((e.ctrlKey || e.metaKey) && k === "s") { e.preventDefault(); saveDocument(); }
+    if ((e.ctrlKey || e.metaKey) && k === "s") { e.preventDefault(); saveFromToolbar(); }
     if ((e.ctrlKey || e.metaKey) && k === "p") { e.preventDefault(); printPDF(); }
   });
 
@@ -1146,10 +1165,12 @@
     var parts = Object.keys(by).map(function (c) { return money(by[c], c); });
     return parts.length ? parts.join(" + ") : null;
   }
-  function showWelcome() {
+  function showWelcome(force) {
     if (isDemo || sharedView) return;
     var hasDraftContent = doc && hasContent(doc);
-    if (!hasDraftContent && docs.length === 0) return; // first visit — straight to the editor
+    // on plain load, first-time visitors skip straight to the editor;
+    // an explicit Home click always opens the screen
+    if (!force && !hasDraftContent && docs.length === 0) return;
 
     // greeting
     var h = new Date().getHours();
@@ -1319,6 +1340,19 @@
 
   $("welcome-skip").addEventListener("click", hideWelcome);
   $("welcome-draft").addEventListener("click", hideWelcome);
+
+  // Back to home from the editor: capture current work into the draft first
+  // so the "continue where you left off" card is up to date, then open home.
+  function goHome() {
+    if (isDemo || sharedView) return;
+    readEditor();
+    draftTs = Date.now();
+    persistDraft();
+    welcomeShowView("home");
+    showWelcome(true);
+  }
+  $("btn-home").addEventListener("click", goHome);
+  $("btn-home-text").addEventListener("click", goHome);
   document.querySelectorAll("[data-welcome-new]").forEach(function (b) {
     b.addEventListener("click", function () {
       readEditor();

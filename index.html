@@ -18,7 +18,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231e6f50'/%3E%3Cpath d='M9 10h14M9 16h14M9 22h8' stroke='%23f5f2ea' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1e6f50">
-<link rel="stylesheet" href="styles.css?v=15">
+<link rel="stylesheet" href="styles.css?v=16">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -111,10 +111,10 @@
 </div>
 
 <header class="topbar no-print">
-  <div class="brand">
+  <button type="button" class="brand brand-btn" id="btn-home" title="Back to home" aria-label="Back to home">
     <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)"/><path d="M9 10h14M9 16h14M9 22h8" stroke="#f5f2ea" stroke-width="2.6" stroke-linecap="round"/></svg>
     <span class="brand-name">Tidy<em>Invoice</em></span>
-  </div>
+  </button>
 
   <nav class="doc-type-switch" role="tablist" aria-label="Document type">
     <button type="button" role="tab" data-doctype="invoice" class="is-on" aria-selected="true">Invoice</button>
@@ -124,6 +124,7 @@
 
   <div class="topbar-actions">
     <button type="button" id="btn-uitheme" class="btn ghost" title="Toggle dark mode" aria-label="Toggle dark mode">☾</button>
+    <button type="button" id="btn-home-text" class="btn ghost" title="Back to home">Home</button>
     <button type="button" id="btn-new" class="btn ghost" title="Start a fresh document">New</button>
     <button type="button" id="btn-history" class="btn ghost">Saved <span id="history-count" class="count-pill" hidden>0</span></button>
     <button type="button" id="btn-save" class="btn ghost">Save</button>
@@ -492,6 +493,6 @@
 }
 </script>
 
-<script src="app.js?v=14"></script>
+<script src="app.js?v=16"></script>
 </body>
 </html>
