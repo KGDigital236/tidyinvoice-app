@@ -259,16 +259,22 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .step-btns button:active { transform: translateY(1px); }
 .step-btns svg { display: block; }
 
+/* rows that can't shrink gracefully wrap instead (layout buttons + language) */
+.field-row.wrap-tight { flex-wrap: wrap; }
+.field-row.wrap-tight .field { flex: 1 1 205px; }
+
 .layout-btns { display: flex; gap: 6px; padding-top: 2px; }
 .layout-btns button {
   border: 1px solid var(--line);
   background: var(--field-bg);
   border-radius: 7px;
-  padding: 7px 9px;
+  padding: 7px 8px;
   font-size: 12px;
   font-weight: 600;
   color: var(--ink-soft);
   flex: 1;
+  white-space: nowrap;
+  min-width: 0;
 }
 .layout-btns button.is-on {
   border-color: var(--accent);
