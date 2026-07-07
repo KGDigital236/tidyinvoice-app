@@ -1012,12 +1012,16 @@
   }
 
   // Signature of the fields a user actually edits — used to detect unsaved changes.
+  // Item numerics are normalised so re-typing the same value (which turns a stored
+  // number into an identical string) doesn't read as a change.
   function docSignature(d) {
     return JSON.stringify({
       type: d.type, number: d.number, currency: d.currency, date: d.date, due: d.due,
       reference: d.reference, theme: d.theme, layout: d.layout, lang: d.lang,
-      client: d.client, items: d.items, discount: d.discount, discountType: d.discountType,
-      amountPaid: d.amountPaid, payment: d.payment, notes: d.notes, status: d.status
+      client: d.client,
+      items: d.items.map(function (it) { return { desc: it.desc || "", qty: num(it.qty), price: num(it.price), vat: num(it.vat) }; }),
+      discount: num(d.discount), discountType: d.discountType,
+      amountPaid: num(d.amountPaid), payment: d.payment, notes: d.notes, status: d.status
     });
   }
   // Unsaved changes exist when: (a) a new document has real content and was never
@@ -1031,6 +1035,12 @@
   }
 
   // ----- unsaved-changes dialog -----
+  // onclick assignment (not addEventListener) means each open overwrites the last
+  // handlers, so nothing stacks and no manual cleanup bookkeeping is needed.
+  function closeConfirm() {
+    $("confirm-modal").hidden = true;
+    $("confirm-backdrop").hidden = true;
+  }
   function openConfirm(onSave, onDiscard) {
     var saved = doc.id && docs.find(function (x) { return x.id === doc.id; });
     $("confirm-title").textContent = saved
@@ -1042,28 +1052,12 @@
     $("confirm-backdrop").hidden = false;
     $("confirm-modal").hidden = false;
 
-    function cleanup() {
-      $("confirm-modal").hidden = true;
-      $("confirm-backdrop").hidden = true;
-      saveBtn.removeEventListener("click", onSaveClick);
-      discardBtn.removeEventListener("click", onDiscardClick);
-      cancelBtn.removeEventListener("click", cleanup);
-      $("confirm-backdrop").removeEventListener("click", cleanup);
-    }
-    function onSaveClick() { cleanup(); onSave(); }
-    function onDiscardClick() { cleanup(); onDiscard(); }
-
-    var saveBtn = $("confirm-save");
-    var discardBtn = $("confirm-discard");
-    var cancelBtn = $("confirm-cancel");
-    saveBtn.addEventListener("click", onSaveClick);
-    discardBtn.addEventListener("click", onDiscardClick);
-    cancelBtn.addEventListener("click", cleanup);
-    $("confirm-backdrop").addEventListener("click", cleanup);
-    confirmOpen = cleanup;
-    saveBtn.focus();
+    $("confirm-save").onclick = function () { closeConfirm(); onSave(); };
+    $("confirm-discard").onclick = function () { closeConfirm(); onDiscard(); };
+    $("confirm-cancel").onclick = closeConfirm;
+    $("confirm-backdrop").onclick = closeConfirm;
+    $("confirm-save").focus();
   }
-  var confirmOpen = null;
   function confirmModalOpen() { return !$("confirm-modal").hidden; }
 
   function startNewDoc() {
@@ -1097,7 +1091,7 @@
   $("drawer-backdrop").addEventListener("click", closeHistory);
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
-      if (confirmModalOpen()) { if (confirmOpen) confirmOpen(); return; } // cancel the dialog only
+      if (confirmModalOpen()) { closeConfirm(); return; } // cancel the dialog only
       closeHistory();
       if (!$("welcome").hidden && !$("welcome-all").hidden) { welcomeShowView("home"); }
       else hideWelcome();
@@ -1230,6 +1224,51 @@
     var parts = Object.keys(by).map(function (c) { return money(by[c], c); });
     return parts.length ? parts.join(" + ") : null;
   }
+  // One saved-document row, shared by the welcome home list and the all-documents page.
+  function buildDocRow(d, opts) {
+    opts = opts || {};
+    var li = document.createElement("li");
+    li.className = "welcome-recent-item";
+
+    var open = document.createElement("button");
+    open.type = "button";
+    open.className = "wr-open";
+    open.setAttribute("aria-label", "Open " + d.number);
+    open.addEventListener("click", function () { loadDoc(d.id); hideWelcome(); });
+
+    var num = document.createElement("span");
+    num.className = "wr-num";
+    num.textContent = d.number;
+    var client = document.createElement("span");
+    client.className = "wr-client";
+    client.textContent = (d.client.name || "No client") + (opts.showDate ? " · " + fmtDate(d.date) : "");
+    var pill = document.createElement("span");
+    pill.className = "wr-pill " + d.status;
+    pill.textContent = d.status;
+    var total = document.createElement("span");
+    total.className = "wr-total";
+    total.textContent = money(d.totalSnapshot || 0, d.currency);
+    open.append(num, client, pill, total);
+    li.appendChild(open);
+
+    function act(label, title, fn) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn tiny ghost wr-act";
+      b.textContent = label;
+      if (title) b.title = title;
+      b.addEventListener("click", fn);
+      return b;
+    }
+    li.appendChild(act("Duplicate", "New copy for the same client", function () { duplicateDoc(d.id); hideWelcome(); }));
+    li.appendChild(act("PDF", "Open and download as PDF", function () { loadDoc(d.id); hideWelcome(); printPDF(); }));
+    if (opts.onDelete) {
+      var del = act("Delete", null, function () { deleteDoc(d.id); opts.onDelete(); });
+      del.classList.add("danger");
+      li.appendChild(del);
+    }
+    return li;
+  }
   function showWelcome(force) {
     if (isDemo || sharedView) return;
     var hasDraftContent = doc && hasContent(doc);
@@ -1267,46 +1306,7 @@
     // recent documents with status + quick actions
     var ul = $("welcome-recent");
     ul.textContent = "";
-    docs.slice(0, 5).forEach(function (d) {
-      var li = document.createElement("li");
-      li.className = "welcome-recent-item";
-
-      var open = document.createElement("button");
-      open.type = "button";
-      open.className = "wr-open";
-      var num = document.createElement("span");
-      num.className = "wr-num";
-      num.textContent = d.number;
-      var client = document.createElement("span");
-      client.className = "wr-client";
-      client.textContent = d.client.name || "No client";
-      var pill = document.createElement("span");
-      pill.className = "wr-pill " + d.status;
-      pill.textContent = d.status;
-      var total = document.createElement("span");
-      total.className = "wr-total";
-      total.textContent = money(d.totalSnapshot || 0, d.currency);
-      open.append(num, client, pill, total);
-      open.setAttribute("aria-label", "Open " + d.number);
-      open.addEventListener("click", function () { loadDoc(d.id); hideWelcome(); });
-
-      var dup = document.createElement("button");
-      dup.type = "button";
-      dup.className = "btn tiny ghost wr-act";
-      dup.textContent = "Duplicate";
-      dup.title = "New copy for the same client";
-      dup.addEventListener("click", function () { duplicateDoc(d.id); hideWelcome(); });
-
-      var pdf = document.createElement("button");
-      pdf.type = "button";
-      pdf.className = "btn tiny ghost wr-act";
-      pdf.textContent = "PDF";
-      pdf.title = "Open and download as PDF";
-      pdf.addEventListener("click", function () { loadDoc(d.id); hideWelcome(); printPDF(); });
-
-      li.append(open, dup, pdf);
-      ul.appendChild(li);
-    });
+    docs.slice(0, 5).forEach(function (d) { ul.appendChild(buildDocRow(d)); });
     $("welcome-recent-wrap").hidden = docs.length === 0;
 
     $("welcome").hidden = false;
@@ -1334,50 +1334,8 @@
              (d.client.name || "").toLowerCase().indexOf(q) > -1;
     });
     $("wa-empty").hidden = shown.length > 0;
-
     shown.forEach(function (d) {
-      var li = document.createElement("li");
-      li.className = "welcome-recent-item";
-
-      var open = document.createElement("button");
-      open.type = "button";
-      open.className = "wr-open";
-      var num = document.createElement("span");
-      num.className = "wr-num";
-      num.textContent = d.number;
-      var client = document.createElement("span");
-      client.className = "wr-client";
-      client.textContent = (d.client.name || "No client") + " · " + fmtDate(d.date);
-      var pill = document.createElement("span");
-      pill.className = "wr-pill " + d.status;
-      pill.textContent = d.status;
-      var total = document.createElement("span");
-      total.className = "wr-total";
-      total.textContent = money(d.totalSnapshot || 0, d.currency);
-      open.append(num, client, pill, total);
-      open.setAttribute("aria-label", "Open " + d.number);
-      open.addEventListener("click", function () { loadDoc(d.id); hideWelcome(); });
-
-      var dup = document.createElement("button");
-      dup.type = "button";
-      dup.className = "btn tiny ghost wr-act";
-      dup.textContent = "Duplicate";
-      dup.addEventListener("click", function () { duplicateDoc(d.id); hideWelcome(); });
-
-      var pdf = document.createElement("button");
-      pdf.type = "button";
-      pdf.className = "btn tiny ghost wr-act";
-      pdf.textContent = "PDF";
-      pdf.addEventListener("click", function () { loadDoc(d.id); hideWelcome(); printPDF(); });
-
-      var del = document.createElement("button");
-      del.type = "button";
-      del.className = "btn tiny ghost danger wr-act";
-      del.textContent = "Delete";
-      del.addEventListener("click", function () { deleteDoc(d.id); renderWelcomeAll(); });
-
-      li.append(open, dup, pdf, del);
-      list.appendChild(li);
+      list.appendChild(buildDocRow(d, { showDate: true, onDelete: renderWelcomeAll }));
     });
   }
 
