@@ -18,7 +18,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231e6f50'/%3E%3Cpath d='M9 10h14M9 16h14M9 22h8' stroke='%23f5f2ea' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1e6f50">
-<link rel="stylesheet" href="styles.css?v=11">
+<link rel="stylesheet" href="styles.css?v=12">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -33,6 +33,42 @@
 </head>
 <body>
 <noscript><p class="noscript-note">TidyInvoice runs entirely in your browser and needs JavaScript turned on — nothing is sent to any server.</p></noscript>
+
+<!-- ============ WELCOME / RESUME SCREEN (returning users only) ============ -->
+<div class="welcome no-print" id="welcome" hidden role="dialog" aria-label="Welcome back">
+  <div class="welcome-card">
+    <div class="welcome-head">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)"/><path d="M9 10h14M9 16h14M9 22h8" stroke="#f5f2ea" stroke-width="2.6" stroke-linecap="round"/></svg>
+        <span class="brand-name">Tidy<em>Invoice</em></span>
+      </div>
+      <button type="button" class="btn ghost tiny" id="welcome-skip">Skip</button>
+    </div>
+    <h2 class="welcome-title">Welcome back</h2>
+
+    <button type="button" class="welcome-draft" id="welcome-draft" hidden>
+      <span class="wd-label">Continue where you left off</span>
+      <span class="wd-main" id="welcome-draft-main"></span>
+      <span class="wd-sub" id="welcome-draft-sub"></span>
+    </button>
+
+    <div class="welcome-recent" id="welcome-recent-wrap" hidden>
+      <div class="welcome-sec-label">Recent documents</div>
+      <ul id="welcome-recent"></ul>
+    </div>
+
+    <div class="welcome-new">
+      <div class="welcome-sec-label">Start fresh</div>
+      <div class="welcome-new-btns">
+        <button type="button" class="btn" data-welcome-new="invoice">New invoice</button>
+        <button type="button" class="btn" data-welcome-new="quote">New quote</button>
+        <button type="button" class="btn" data-welcome-new="receipt">New receipt</button>
+      </div>
+    </div>
+
+    <p class="welcome-foot">Everything is stored on this device — nothing is uploaded.</p>
+  </div>
+</div>
 
 <header class="topbar no-print">
   <div class="brand">
@@ -416,6 +452,6 @@
 }
 </script>
 
-<script src="app.js?v=9"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>

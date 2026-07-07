@@ -1003,7 +1003,7 @@
   $("btn-close-history").addEventListener("click", closeHistory);
   $("drawer-backdrop").addEventListener("click", closeHistory);
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") closeHistory();
+    if (e.key === "Escape") { closeHistory(); hideWelcome(); }
     var k = e.key && e.key.toLowerCase();
     if ((e.ctrlKey || e.metaKey) && k === "s") { e.preventDefault(); saveDocument(); }
     if ((e.ctrlKey || e.metaKey) && k === "p") { e.preventDefault(); printPDF(); }
@@ -1114,6 +1114,70 @@
     applyUITheme();
   });
 
+  // ---------- welcome / resume screen ----------
+  function typeLabel(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
+  function showWelcome() {
+    if (isDemo || sharedView) return;
+    var hasDraftContent = doc && hasContent(doc);
+    if (!hasDraftContent && docs.length === 0) return; // first visit — straight to the editor
+
+    var draftBtn = $("welcome-draft");
+    if (hasDraftContent) {
+      var t = calcTotals();
+      $("welcome-draft-main").textContent = (doc.number || "Draft") + (doc.client.name ? " — " + doc.client.name : "");
+      $("welcome-draft-sub").textContent = typeLabel(doc.type) + " · " + money(t.total, doc.currency);
+      draftBtn.hidden = false;
+    } else {
+      draftBtn.hidden = true;
+    }
+
+    var ul = $("welcome-recent");
+    ul.textContent = "";
+    var recent = docs.slice(0, 5);
+    recent.forEach(function (d) {
+      var li = document.createElement("li");
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "welcome-recent-item";
+      var num = document.createElement("span");
+      num.className = "wr-num";
+      num.textContent = d.number;
+      var client = document.createElement("span");
+      client.className = "wr-client";
+      client.textContent = d.client.name || "No client";
+      var total = document.createElement("span");
+      total.className = "wr-total";
+      total.textContent = money(d.totalSnapshot || 0, d.currency);
+      b.append(num, client, total);
+      b.addEventListener("click", function () { loadDoc(d.id); hideWelcome(); });
+      li.appendChild(b);
+      ul.appendChild(li);
+    });
+    $("welcome-recent-wrap").hidden = recent.length === 0;
+
+    $("welcome").hidden = false;
+  }
+  function hideWelcome() { $("welcome").hidden = true; }
+
+  $("welcome-skip").addEventListener("click", hideWelcome);
+  $("welcome-draft").addEventListener("click", hideWelcome);
+  document.querySelectorAll("[data-welcome-new]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      readEditor();
+      if (hasContent(doc)) {
+        var keptNumber = doc.number;
+        saveDocument();
+        toast(keptNumber + " kept as a draft — it's under Saved");
+      }
+      doc = newDoc(b.dataset.welcomeNew);
+      savedId = null;
+      fillEditor();
+      render();
+      persistDraft();
+      hideWelcome();
+    });
+  });
+
   // mobile edit/preview tabs
   document.querySelectorAll(".mobile-tabs button").forEach(function (b) {
     b.addEventListener("click", function () {
@@ -1209,4 +1273,5 @@
   render();
   renderHistory();
   scalePreview();
+  showWelcome();
 })();
