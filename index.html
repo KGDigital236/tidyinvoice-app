@@ -18,7 +18,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231e6f50'/%3E%3Cpath d='M9 10h14M9 16h14M9 22h8' stroke='%23f5f2ea' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1e6f50">
-<link rel="stylesheet" href="styles.css?v=13">
+<link rel="stylesheet" href="styles.css?v=15">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -37,46 +37,76 @@
 <!-- ============ WELCOME / RESUME SCREEN (returning users only) ============ -->
 <div class="welcome no-print" id="welcome" hidden role="dialog" aria-label="Welcome back">
   <div class="welcome-card">
-    <div class="welcome-head">
-      <div class="brand">
-        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)"/><path d="M9 10h14M9 16h14M9 22h8" stroke="#f5f2ea" stroke-width="2.6" stroke-linecap="round"/></svg>
-        <span class="brand-name">Tidy<em>Invoice</em></span>
+
+    <!-- ---- HOME view ---- -->
+    <div class="welcome-view" id="welcome-home">
+      <div class="welcome-head">
+        <div class="brand">
+          <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)"/><path d="M9 10h14M9 16h14M9 22h8" stroke="#f5f2ea" stroke-width="2.6" stroke-linecap="round"/></svg>
+          <span class="brand-name">Tidy<em>Invoice</em></span>
+        </div>
+        <button type="button" class="btn ghost tiny" id="welcome-skip">Skip</button>
       </div>
-      <button type="button" class="btn ghost tiny" id="welcome-skip">Skip</button>
-    </div>
-    <h2 class="welcome-title" id="welcome-greeting">Welcome back</h2>
-    <p class="welcome-bizline" id="welcome-bizline" hidden></p>
+      <h2 class="welcome-title" id="welcome-greeting">Welcome back</h2>
+      <p class="welcome-bizline" id="welcome-bizline" hidden></p>
 
-    <div class="welcome-stats" id="welcome-stats" hidden>
-      <div class="wstat"><span class="wstat-num" id="wstat-outstanding">—</span><span class="wstat-label">Outstanding</span></div>
-      <div class="wstat"><span class="wstat-num" id="wstat-collected">—</span><span class="wstat-label">Collected</span></div>
-      <div class="wstat"><span class="wstat-num" id="wstat-count">0</span><span class="wstat-label">Documents</span></div>
-    </div>
-
-    <button type="button" class="welcome-draft" id="welcome-draft" hidden>
-      <span class="wd-label" id="welcome-draft-label">Continue where you left off</span>
-      <span class="wd-main" id="welcome-draft-main"></span>
-      <span class="wd-sub" id="welcome-draft-sub"></span>
-    </button>
-
-    <div class="welcome-recent" id="welcome-recent-wrap" hidden>
-      <div class="welcome-sec-head">
-        <span class="welcome-sec-label">Recent documents</span>
-        <button type="button" class="btn ghost tiny" id="welcome-viewall">View all</button>
+      <div class="welcome-stats" id="welcome-stats" hidden>
+        <div class="wstat"><span class="wstat-num" id="wstat-outstanding">—</span><span class="wstat-label">Outstanding</span></div>
+        <div class="wstat"><span class="wstat-num" id="wstat-collected">—</span><span class="wstat-label">Collected</span></div>
+        <div class="wstat"><span class="wstat-num" id="wstat-count">0</span><span class="wstat-label">Documents</span></div>
       </div>
-      <ul id="welcome-recent"></ul>
-    </div>
 
-    <div class="welcome-new">
-      <div class="welcome-sec-label">Start fresh</div>
-      <div class="welcome-new-btns">
-        <button type="button" class="btn" data-welcome-new="invoice">New invoice</button>
-        <button type="button" class="btn" data-welcome-new="quote">New quote</button>
-        <button type="button" class="btn" data-welcome-new="receipt">New receipt</button>
+      <button type="button" class="welcome-draft" id="welcome-draft" hidden>
+        <span class="wd-label" id="welcome-draft-label">Continue where you left off</span>
+        <span class="wd-main" id="welcome-draft-main"></span>
+        <span class="wd-sub" id="welcome-draft-sub"></span>
+      </button>
+
+      <div class="welcome-recent" id="welcome-recent-wrap" hidden>
+        <div class="welcome-sec-head">
+          <span class="welcome-sec-label">Recent documents</span>
+          <button type="button" class="btn ghost tiny" id="welcome-viewall">View all</button>
+        </div>
+        <ul id="welcome-recent"></ul>
       </div>
+
+      <div class="welcome-new">
+        <div class="welcome-sec-label">Start fresh</div>
+        <div class="welcome-new-btns">
+          <button type="button" class="btn" data-welcome-new="invoice">New invoice</button>
+          <button type="button" class="btn" data-welcome-new="quote">New quote</button>
+          <button type="button" class="btn" data-welcome-new="receipt">New receipt</button>
+        </div>
+      </div>
+
+      <p class="welcome-foot">Everything is stored on this device — nothing is uploaded.</p>
     </div>
 
-    <p class="welcome-foot">Everything is stored on this device — nothing is uploaded.</p>
+    <!-- ---- ALL DOCUMENTS view ---- -->
+    <div class="welcome-view" id="welcome-all" hidden>
+      <div class="welcome-head">
+        <button type="button" class="wa-back" id="welcome-all-back" aria-label="Back">
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Back
+        </button>
+        <button type="button" class="btn ghost tiny" id="welcome-all-skip">Skip</button>
+      </div>
+      <h2 class="welcome-title">All documents</h2>
+
+      <div class="wa-controls">
+        <input type="search" id="wa-search" placeholder="Search number or client…" autocomplete="off" aria-label="Search documents">
+        <div class="wa-filters" id="wa-filters" role="group" aria-label="Filter by status">
+          <button type="button" data-wa-filter="all" class="is-on">All</button>
+          <button type="button" data-wa-filter="draft">Draft</button>
+          <button type="button" data-wa-filter="sent">Sent</button>
+          <button type="button" data-wa-filter="paid">Paid</button>
+        </div>
+      </div>
+
+      <ul id="welcome-all-list" class="welcome-all-list"></ul>
+      <p class="wa-empty" id="wa-empty" hidden>No documents match.</p>
+    </div>
+
   </div>
 </div>
 
@@ -462,6 +492,6 @@
 }
 </script>
 
-<script src="app.js?v=13"></script>
+<script src="app.js?v=14"></script>
 </body>
 </html>

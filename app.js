@@ -1013,7 +1013,11 @@
   $("btn-close-history").addEventListener("click", closeHistory);
   $("drawer-backdrop").addEventListener("click", closeHistory);
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") { closeHistory(); hideWelcome(); }
+    if (e.key === "Escape") {
+      closeHistory();
+      if (!$("welcome").hidden && !$("welcome-all").hidden) { welcomeShowView("home"); }
+      else hideWelcome();
+    }
     var k = e.key && e.key.toLowerCase();
     if ((e.ctrlKey || e.metaKey) && k === "s") { e.preventDefault(); saveDocument(); }
     if ((e.ctrlKey || e.metaKey) && k === "p") { e.preventDefault(); printPDF(); }
@@ -1221,8 +1225,97 @@
 
     $("welcome").hidden = false;
   }
-  function hideWelcome() { $("welcome").hidden = true; }
-  $("welcome-viewall").addEventListener("click", function () { hideWelcome(); openHistory(); });
+  function hideWelcome() { $("welcome").hidden = true; welcomeShowView("home"); }
+
+  // ----- welcome: switch between the home page and the all-documents page -----
+  function welcomeShowView(name) {
+    $("welcome-home").hidden = name !== "home";
+    $("welcome-all").hidden = name !== "all";
+    $("welcome").scrollTop = 0;
+    var card = document.querySelector(".welcome-card");
+    if (card) { card.style.animation = "none"; void card.offsetWidth; card.style.animation = ""; }
+  }
+
+  var waFilter = "all";
+  function renderWelcomeAll() {
+    var q = $("wa-search").value.trim().toLowerCase();
+    var list = $("welcome-all-list");
+    list.textContent = "";
+    var shown = docs.filter(function (d) {
+      if (waFilter !== "all" && d.status !== waFilter) return false;
+      if (!q) return true;
+      return (d.number || "").toLowerCase().indexOf(q) > -1 ||
+             (d.client.name || "").toLowerCase().indexOf(q) > -1;
+    });
+    $("wa-empty").hidden = shown.length > 0;
+
+    shown.forEach(function (d) {
+      var li = document.createElement("li");
+      li.className = "welcome-recent-item";
+
+      var open = document.createElement("button");
+      open.type = "button";
+      open.className = "wr-open";
+      var num = document.createElement("span");
+      num.className = "wr-num";
+      num.textContent = d.number;
+      var client = document.createElement("span");
+      client.className = "wr-client";
+      client.textContent = (d.client.name || "No client") + " · " + fmtDate(d.date);
+      var pill = document.createElement("span");
+      pill.className = "wr-pill " + d.status;
+      pill.textContent = d.status;
+      var total = document.createElement("span");
+      total.className = "wr-total";
+      total.textContent = money(d.totalSnapshot || 0, d.currency);
+      open.append(num, client, pill, total);
+      open.setAttribute("aria-label", "Open " + d.number);
+      open.addEventListener("click", function () { loadDoc(d.id); hideWelcome(); });
+
+      var dup = document.createElement("button");
+      dup.type = "button";
+      dup.className = "btn tiny ghost wr-act";
+      dup.textContent = "Duplicate";
+      dup.addEventListener("click", function () { duplicateDoc(d.id); hideWelcome(); });
+
+      var pdf = document.createElement("button");
+      pdf.type = "button";
+      pdf.className = "btn tiny ghost wr-act";
+      pdf.textContent = "PDF";
+      pdf.addEventListener("click", function () { loadDoc(d.id); hideWelcome(); printPDF(); });
+
+      var del = document.createElement("button");
+      del.type = "button";
+      del.className = "btn tiny ghost danger wr-act";
+      del.textContent = "Delete";
+      del.addEventListener("click", function () { deleteDoc(d.id); renderWelcomeAll(); });
+
+      li.append(open, dup, pdf, del);
+      list.appendChild(li);
+    });
+  }
+
+  $("welcome-viewall").addEventListener("click", function () {
+    waFilter = "all";
+    $("wa-search").value = "";
+    document.querySelectorAll("#wa-filters button").forEach(function (b) {
+      b.classList.toggle("is-on", b.dataset.waFilter === "all");
+    });
+    renderWelcomeAll();
+    welcomeShowView("all");
+  });
+  $("welcome-all-back").addEventListener("click", function () { showWelcome(); welcomeShowView("home"); });
+  $("welcome-all-skip").addEventListener("click", hideWelcome);
+  $("wa-search").addEventListener("input", renderWelcomeAll);
+  document.querySelectorAll("#wa-filters button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      waFilter = b.dataset.waFilter;
+      document.querySelectorAll("#wa-filters button").forEach(function (x) {
+        x.classList.toggle("is-on", x === b);
+      });
+      renderWelcomeAll();
+    });
+  });
 
   $("welcome-skip").addEventListener("click", hideWelcome);
   $("welcome-draft").addEventListener("click", hideWelcome);

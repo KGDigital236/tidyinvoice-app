@@ -696,13 +696,67 @@ body[data-ui="dark"] .wr-pill.paid { background: #1e2c24; color: #8cc9a6; }
 .wr-total { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .wr-act { align-self: center; flex: 0 0 auto; }
 @media screen and (max-width: 480px) {
-  .wr-client { display: none; }
   .welcome-stats { flex-wrap: wrap; }
   .wstat { flex: 1 1 45%; }
+  /* row: document on top line, actions wrap to a second line */
+  .welcome-recent-item { flex-wrap: wrap; }
+  .wr-open { flex: 1 1 100%; }
+  .wr-act { flex: 1 1 auto; }
 }
 .welcome-new-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .welcome-new-btns .btn { flex: 1; white-space: nowrap; }
 .welcome-foot { font-size: 12px; color: var(--ink-soft); margin: 18px 0 0; text-align: center; }
+.welcome-view[hidden] { display: none; }
+
+/* all-documents page inside the welcome overlay */
+.wa-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 4px 6px 4px 2px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.wa-back:hover { color: var(--accent-ink); background: var(--paper); }
+.wa-controls { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+#wa-search {
+  flex: 1 1 180px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 11px;
+  background: var(--field-bg);
+  color: var(--ink);
+}
+#wa-search:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+.wa-filters { display: flex; gap: 3px; background: var(--paper); border: 1px solid var(--line); border-radius: 99px; padding: 3px; }
+.wa-filters button {
+  border: 0;
+  background: transparent;
+  padding: 6px 12px;
+  border-radius: 99px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.wa-filters button.is-on { background: var(--accent); color: #fff; }
+.welcome-all-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 52vh;
+  overflow-y: auto;
+}
+.wa-empty { color: var(--ink-soft); font-size: 13.5px; text-align: center; padding: 20px 0; }
 
 /* ============ Toast ============ */
 #toast {
