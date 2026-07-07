@@ -163,8 +163,8 @@
       amountPaid: 0,
       layout: settings.layout || "classic",
       lang: settings.lang || "en",
-      payment: settings.payment || "",
-      notes: settings.notes || "",
+      payment: settings.payment || "", // bank details persist — same on every invoice
+      notes: "",                        // per-document message — always starts blank
       status: "draft"
     };
   }
@@ -229,8 +229,7 @@
     settings.defaultVat = num($("f-default-vat").value);
     doc.payment = $("f-payment").value;
     doc.notes = $("f-notes").value;
-    settings.payment = doc.payment;
-    settings.notes = doc.notes;
+    settings.payment = doc.payment; // bank details are business-wide; notes stay per-document
     doc.lang = $("f-lang").value;
     settings.lang = doc.lang;
     var pfx = $("f-prefix").value.trim();
