@@ -567,15 +567,60 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   padding: 7vh 16px 40px;
 }
 .welcome-card {
-  width: min(520px, 100%);
+  width: min(560px, 100%);
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 14px;
-  box-shadow: var(--shadow);
-  padding: 22px 24px 18px;
+  border-radius: 16px;
+  box-shadow: 0 2px 6px rgba(34,39,31,.05), 0 18px 50px rgba(34,39,31,.14);
+  padding: 22px 26px 18px;
+  animation: welcome-in .3s cubic-bezier(.2,.8,.3,1);
+}
+@keyframes welcome-in {
+  from { opacity: 0; transform: translateY(14px) scale(.985); }
+}
+.welcome { animation: welcome-fade .25s ease-out; }
+@keyframes welcome-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .welcome, .welcome-card { animation: none; }
 }
 .welcome-head { display: flex; justify-content: space-between; align-items: center; }
-.welcome-title { margin: 18px 0 14px; font-size: 22px; letter-spacing: -0.3px; }
+.welcome-title { margin: 20px 0 2px; font-size: 24px; letter-spacing: -0.4px; }
+.welcome-bizline { margin: 0 0 16px; color: var(--ink-soft); font-size: 14px; }
+.welcome-bizline[hidden] { display: none; }
+.welcome-title + .welcome-stats, .welcome-bizline + .welcome-stats { margin-top: 14px; }
+
+.welcome-stats {
+  display: flex;
+  gap: 10px;
+  margin: 0 0 18px;
+}
+.wstat {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.wstat-num {
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--accent-ink);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wstat-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--ink-soft);
+}
 .welcome-sec-label {
   font-size: 11.5px;
   font-weight: 700;
@@ -602,25 +647,59 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .wd-main { font-size: 15.5px; font-weight: 700; color: var(--ink); }
 .wd-sub { font-size: 13px; color: var(--ink-soft); }
 .welcome-recent { margin-bottom: 18px; }
+.welcome-sec-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.welcome-sec-head .welcome-sec-label { margin: 0; }
 .welcome-recent ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .welcome-recent-item {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 10px;
-  width: 100%;
+  align-items: stretch;
+  gap: 6px;
   background: var(--card);
   border: 1px solid var(--line-soft);
   border-radius: 9px;
-  padding: 9px 12px;
-  cursor: pointer;
-  font-size: 13.5px;
-  color: var(--ink);
+  padding: 4px;
+  transition: border-color .12s;
 }
 .welcome-recent-item:hover { border-color: var(--accent); }
-.wr-num { font-weight: 700; }
+.wr-open {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 13.5px;
+  color: var(--ink);
+  text-align: left;
+}
+.wr-open:hover { background: var(--paper); }
+.wr-num { font-weight: 700; white-space: nowrap; }
 .wr-client { color: var(--ink-soft); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wr-total { font-weight: 700; font-variant-numeric: tabular-nums; }
+.wr-pill {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  border-radius: 99px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.wr-pill.draft { background: #eee9db; color: #5c6357; }
+.wr-pill.sent { background: #e3ecf5; color: #1f5f8b; }
+.wr-pill.paid { background: #e8f2ec; color: #14503a; }
+body[data-ui="dark"] .wr-pill.draft { background: #2a2f27; color: #9aa192; }
+body[data-ui="dark"] .wr-pill.sent { background: #1d2b38; color: #7db3dc; }
+body[data-ui="dark"] .wr-pill.paid { background: #1e2c24; color: #8cc9a6; }
+.wr-total { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wr-act { align-self: center; flex: 0 0 auto; }
+@media screen and (max-width: 480px) {
+  .wr-client { display: none; }
+  .welcome-stats { flex-wrap: wrap; }
+  .wstat { flex: 1 1 45%; }
+}
 .welcome-new-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .welcome-new-btns .btn { flex: 1; white-space: nowrap; }
 .welcome-foot { font-size: 12px; color: var(--ink-soft); margin: 18px 0 0; text-align: center; }

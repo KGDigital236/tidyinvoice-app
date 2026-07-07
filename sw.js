@@ -1,5 +1,5 @@
 /* TidyInvoice service worker — network-first; cache is only the offline fallback. */
-var CACHE = "tidyinvoice-v11";
+var CACHE = "tidyinvoice-v12";
 var ASSETS = ["./", "index.html", "styles.css", "app.js", "manifest.json", "icon.svg", "apple-touch-icon.png"];
 
 self.addEventListener("install", function (e) {

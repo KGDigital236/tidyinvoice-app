@@ -103,6 +103,7 @@
   var doc = null;         // current document
   var savedId = null;     // id in docs[] if this doc has been saved
   var sharedView = false; // viewing a document opened from a share link
+  var draftTs = null;     // when the loaded draft was last touched
 
   function reEsc(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
@@ -569,7 +570,7 @@
   var persistDraft = debounce(function () {
     if (sharedView) return; // never overwrite the local draft while just viewing a shared doc
     syncProfileSnapshot();
-    save(LS.draft, { doc: doc, savedId: savedId });
+    save(LS.draft, { doc: doc, savedId: savedId, ts: Date.now() });
     save(LS.settings, settings);
   }, 400);
 
@@ -695,9 +696,17 @@
     if (savedId === id) { doc.status = status; render(); persistDraft(); }
     renderHistory();
   }
+  // any action that replaces the current document keeps meaningful work first
+  function keepCurrentIfMeaningful() {
+    if (sharedView || isDemo) return;
+    readEditor();
+    if (hasContent(doc)) saveDocument(); // new content becomes a draft; pending edits to a saved doc get committed
+  }
+
   function loadDoc(id) {
     var d = docs.find(function (x) { return x.id === id; });
     if (!d) return;
+    keepCurrentIfMeaningful();
     doc = JSON.parse(JSON.stringify(d));
     savedId = id;
     fillEditor();
@@ -708,6 +717,7 @@
   function duplicateDoc(id) {
     var d = docs.find(function (x) { return x.id === id; });
     if (!d) return;
+    keepCurrentIfMeaningful();
     doc = JSON.parse(JSON.stringify(d));
     doc.id = null;
     doc.status = "draft";
@@ -1116,14 +1126,47 @@
 
   // ---------- welcome / resume screen ----------
   function typeLabel(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
+  function relTime(ts) {
+    if (!ts) return "";
+    var mins = Math.floor((Date.now() - ts) / 60000);
+    if (mins < 1) return "edited just now";
+    if (mins < 60) return "edited " + mins + " min ago";
+    var hrs = Math.floor(mins / 60);
+    if (hrs < 24) return "edited " + hrs + (hrs === 1 ? " hour" : " hours") + " ago";
+    var days = Math.floor(hrs / 24);
+    return "edited " + days + (days === 1 ? " day" : " days") + " ago";
+  }
+  function sumByCurrency(list) {
+    var by = {};
+    list.forEach(function (d) { by[d.currency] = (by[d.currency] || 0) + (d.totalSnapshot || 0); });
+    var parts = Object.keys(by).map(function (c) { return money(by[c], c); });
+    return parts.length ? parts.join(" + ") : null;
+  }
   function showWelcome() {
     if (isDemo || sharedView) return;
     var hasDraftContent = doc && hasContent(doc);
     if (!hasDraftContent && docs.length === 0) return; // first visit — straight to the editor
 
+    // greeting
+    var h = new Date().getHours();
+    $("welcome-greeting").textContent = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+    var bizline = $("welcome-bizline");
+    bizline.textContent = settings.bizName || "";
+    bizline.hidden = !settings.bizName;
+
+    // money at a glance
+    var outstanding = sumByCurrency(docs.filter(function (d) { return d.type === "invoice" && d.status === "sent"; }));
+    var collected = sumByCurrency(docs.filter(function (d) { return d.status === "paid"; }));
+    $("wstat-outstanding").textContent = outstanding || money(0, settings.currency);
+    $("wstat-collected").textContent = collected || money(0, settings.currency);
+    $("wstat-count").textContent = docs.length;
+    $("welcome-stats").hidden = docs.length === 0;
+
+    // continue-draft card
     var draftBtn = $("welcome-draft");
     if (hasDraftContent) {
       var t = calcTotals();
+      $("welcome-draft-label").textContent = "Continue where you left off" + (draftTs ? " · " + relTime(draftTs) : "");
       $("welcome-draft-main").textContent = (doc.number || "Draft") + (doc.client.name ? " — " + doc.client.name : "");
       $("welcome-draft-sub").textContent = typeLabel(doc.type) + " · " + money(t.total, doc.currency);
       draftBtn.hidden = false;
@@ -1131,33 +1174,55 @@
       draftBtn.hidden = true;
     }
 
+    // recent documents with status + quick actions
     var ul = $("welcome-recent");
     ul.textContent = "";
-    var recent = docs.slice(0, 5);
-    recent.forEach(function (d) {
+    docs.slice(0, 5).forEach(function (d) {
       var li = document.createElement("li");
-      var b = document.createElement("button");
-      b.type = "button";
-      b.className = "welcome-recent-item";
+      li.className = "welcome-recent-item";
+
+      var open = document.createElement("button");
+      open.type = "button";
+      open.className = "wr-open";
       var num = document.createElement("span");
       num.className = "wr-num";
       num.textContent = d.number;
       var client = document.createElement("span");
       client.className = "wr-client";
       client.textContent = d.client.name || "No client";
+      var pill = document.createElement("span");
+      pill.className = "wr-pill " + d.status;
+      pill.textContent = d.status;
       var total = document.createElement("span");
       total.className = "wr-total";
       total.textContent = money(d.totalSnapshot || 0, d.currency);
-      b.append(num, client, total);
-      b.addEventListener("click", function () { loadDoc(d.id); hideWelcome(); });
-      li.appendChild(b);
+      open.append(num, client, pill, total);
+      open.setAttribute("aria-label", "Open " + d.number);
+      open.addEventListener("click", function () { loadDoc(d.id); hideWelcome(); });
+
+      var dup = document.createElement("button");
+      dup.type = "button";
+      dup.className = "btn tiny ghost wr-act";
+      dup.textContent = "Duplicate";
+      dup.title = "New copy for the same client";
+      dup.addEventListener("click", function () { duplicateDoc(d.id); hideWelcome(); });
+
+      var pdf = document.createElement("button");
+      pdf.type = "button";
+      pdf.className = "btn tiny ghost wr-act";
+      pdf.textContent = "PDF";
+      pdf.title = "Open and download as PDF";
+      pdf.addEventListener("click", function () { loadDoc(d.id); hideWelcome(); printPDF(); });
+
+      li.append(open, dup, pdf);
       ul.appendChild(li);
     });
-    $("welcome-recent-wrap").hidden = recent.length === 0;
+    $("welcome-recent-wrap").hidden = docs.length === 0;
 
     $("welcome").hidden = false;
   }
   function hideWelcome() { $("welcome").hidden = true; }
+  $("welcome-viewall").addEventListener("click", function () { hideWelcome(); openHistory(); });
 
   $("welcome-skip").addEventListener("click", hideWelcome);
   $("welcome-draft").addEventListener("click", hideWelcome);
@@ -1235,6 +1300,7 @@
   } else if (draft && draft.doc && draft.doc.items) {
     doc = draft.doc;
     savedId = draft.savedId || null;
+    draftTs = draft.ts || null;
   } else {
     doc = newDoc("invoice");
   }
