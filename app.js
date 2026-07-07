@@ -1012,19 +1012,84 @@
     }));
   }
 
-  $("btn-new").addEventListener("click", function () {
-    readEditor();
-    // never lose work: anything with real content is kept in Saved as a draft
-    if (!sharedView && !isDemo && hasContent(doc)) {
-      var keptNumber = doc.number;
-      saveDocument();
-      toast(keptNumber + " kept as a draft — it's under Saved");
+  // Signature of the fields a user actually edits — used to detect unsaved changes.
+  function docSignature(d) {
+    return JSON.stringify({
+      type: d.type, number: d.number, currency: d.currency, date: d.date, due: d.due,
+      reference: d.reference, theme: d.theme, layout: d.layout, lang: d.lang,
+      client: d.client, items: d.items, discount: d.discount, discountType: d.discountType,
+      amountPaid: d.amountPaid, payment: d.payment, notes: d.notes, status: d.status
+    });
+  }
+  // Unsaved changes exist when: (a) a new document has real content and was never
+  // saved, or (b) an already-saved document has been edited since it was saved.
+  function isDirty() {
+    if (!hasContent(doc)) return false;
+    if (!doc.id) return true;
+    var saved = docs.find(function (x) { return x.id === doc.id; });
+    if (!saved) return true;
+    return docSignature(doc) !== docSignature(saved);
+  }
+
+  // ----- unsaved-changes dialog -----
+  function openConfirm(onSave, onDiscard) {
+    var saved = doc.id && docs.find(function (x) { return x.id === doc.id; });
+    $("confirm-title").textContent = saved
+      ? "Save changes to " + doc.number + "?"
+      : "Save this " + doc.type + "?";
+    $("confirm-body").textContent = saved
+      ? "You've edited this " + doc.type + " since it was saved."
+      : "This " + doc.type + " hasn't been saved yet.";
+    $("confirm-backdrop").hidden = false;
+    $("confirm-modal").hidden = false;
+
+    function cleanup() {
+      $("confirm-modal").hidden = true;
+      $("confirm-backdrop").hidden = true;
+      saveBtn.removeEventListener("click", onSaveClick);
+      discardBtn.removeEventListener("click", onDiscardClick);
+      cancelBtn.removeEventListener("click", cleanup);
+      $("confirm-backdrop").removeEventListener("click", cleanup);
     }
+    function onSaveClick() { cleanup(); onSave(); }
+    function onDiscardClick() { cleanup(); onDiscard(); }
+
+    var saveBtn = $("confirm-save");
+    var discardBtn = $("confirm-discard");
+    var cancelBtn = $("confirm-cancel");
+    saveBtn.addEventListener("click", onSaveClick);
+    discardBtn.addEventListener("click", onDiscardClick);
+    cancelBtn.addEventListener("click", cleanup);
+    $("confirm-backdrop").addEventListener("click", cleanup);
+    confirmOpen = cleanup;
+    saveBtn.focus();
+  }
+  var confirmOpen = null;
+  function confirmModalOpen() { return !$("confirm-modal").hidden; }
+
+  function startNewDoc() {
     doc = newDoc(doc.type);
     savedId = null;
     fillEditor();
     render();
     persistDraft();
+  }
+
+  $("btn-new").addEventListener("click", function () {
+    readEditor();
+    if (!sharedView && !isDemo && isDirty()) {
+      openConfirm(
+        function () { // Save
+          var keptNumber = doc.number;
+          saveDocument();
+          startNewDoc();
+          toast(keptNumber + " saved");
+        },
+        function () { startNewDoc(); } // Discard
+      );
+      return;
+    }
+    startNewDoc();
   });
 
   $("btn-save").addEventListener("click", saveFromToolbar);
@@ -1033,6 +1098,7 @@
   $("drawer-backdrop").addEventListener("click", closeHistory);
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
+      if (confirmModalOpen()) { if (confirmOpen) confirmOpen(); return; } // cancel the dialog only
       closeHistory();
       if (!$("welcome").hidden && !$("welcome-all").hidden) { welcomeShowView("home"); }
       else hideWelcome();

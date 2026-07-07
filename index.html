@@ -18,7 +18,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231e6f50'/%3E%3Cpath d='M9 10h14M9 16h14M9 22h8' stroke='%23f5f2ea' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1e6f50">
-<link rel="stylesheet" href="styles.css?v=16">
+<link rel="stylesheet" href="styles.css?v=17">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -442,6 +442,18 @@
   </div>
 </aside>
 
+<!-- ============ UNSAVED-CHANGES DIALOG ============ -->
+<div class="modal-backdrop no-print" id="confirm-backdrop" hidden></div>
+<div class="modal no-print" id="confirm-modal" hidden role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+  <h2 class="modal-title" id="confirm-title">Save this invoice?</h2>
+  <p class="modal-body" id="confirm-body">You've made changes that aren't saved yet.</p>
+  <div class="modal-actions">
+    <button type="button" class="btn danger" id="confirm-discard">Discard</button>
+    <button type="button" class="btn ghost" id="confirm-cancel">Cancel</button>
+    <button type="button" class="btn primary" id="confirm-save">Save</button>
+  </div>
+</div>
+
 <!-- ============ LANDING / SEO CONTENT ============ -->
 <section class="landing no-print">
   <div class="landing-inner">
@@ -493,6 +505,6 @@
 }
 </script>
 
-<script src="app.js?v=16"></script>
+<script src="app.js?v=17"></script>
 </body>
 </html>
