@@ -1349,7 +1349,6 @@
     welcomeShowView("all");
   });
   $("welcome-all-back").addEventListener("click", function () { showWelcome(); welcomeShowView("home"); });
-  $("welcome-all-skip").addEventListener("click", hideWelcome);
   $("wa-search").addEventListener("input", renderWelcomeAll);
   document.querySelectorAll("#wa-filters button").forEach(function (b) {
     b.addEventListener("click", function () {
@@ -1361,8 +1360,9 @@
     });
   });
 
-  $("welcome-skip").addEventListener("click", hideWelcome);
   $("welcome-draft").addEventListener("click", hideWelcome);
+  // click the dimmed area outside the card to dismiss (Escape also works)
+  $("welcome").addEventListener("click", function (e) { if (e.target === this) hideWelcome(); });
 
   // Back to home from the editor: capture current work into the draft first
   // so the "continue where you left off" card is up to date, then open home.
