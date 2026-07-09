@@ -1567,13 +1567,21 @@
   function showWelcome(force) {
     if (isDemo || sharedView) return;
     var hasDraftContent = doc && hasContent(doc);
-    // on plain load, first-time visitors skip straight to the editor;
-    // an explicit Home click always opens the screen
-    if (!force && !hasDraftContent && docs.length === 0) return;
 
-    // greeting
-    var h = new Date().getHours();
-    $("welcome-greeting").textContent = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+    // first visit: greet and capture the user's name before anything else
+    var home = $("welcome-home");
+    if (!settings.userName) {
+      home.classList.add("is-firstrun");
+      $("welcome-firstrun").hidden = false;
+      $("welcome").hidden = false;
+      setTimeout(function () { var i = $("welcome-name-input"); if (i) i.focus(); }, 60);
+      return; // rest of the home screen stays hidden until we have a name
+    }
+    home.classList.remove("is-firstrun");
+    $("welcome-firstrun").hidden = true;
+
+    // greeting — returning users are welcomed back by name
+    $("welcome-greeting").textContent = "Welcome back, " + settings.userName;
     var bizline = $("welcome-bizline");
     bizline.textContent = settings.bizName || "";
     bizline.hidden = !settings.bizName;
@@ -1728,6 +1736,16 @@
     if (name) newFromClient(name);
   });
 
+  // first-visit: save the user's name, then re-render the home screen as a returning user
+  $("welcome-name-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var v = $("welcome-name-input").value.trim();
+    if (!v) { $("welcome-name-input").focus(); return; }
+    settings.userName = v;
+    save(LS.settings, settings);
+    showWelcome(true);
+  });
+
   $("welcome-viewall").addEventListener("click", function () {
     waFilter = "all";
     $("wa-search").value = "";
@@ -1879,4 +1897,15 @@
   renderHistory();
   scalePreview();
   showWelcome();
+
+  // fade out the loading splash after a short beat so the animation is seen
+  (function () {
+    var splash = $("splash");
+    if (!splash) return;
+    var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setTimeout(function () {
+      splash.classList.add("is-hiding");
+      setTimeout(function () { splash.hidden = true; }, 500);
+    }, reduce ? 200 : 1100);
+  })();
 })();

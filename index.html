@@ -24,7 +24,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231e6f50'/%3E%3Cpath d='M9 10h14M9 16h14M9 22h8' stroke='%23f5f2ea' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1e6f50">
-<link rel="stylesheet" href="styles.css?v=21">
+<link rel="stylesheet" href="styles.css?v=28">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -40,6 +40,18 @@
 <body>
 <noscript><p class="noscript-note">TidyInvoice runs entirely in your browser and needs JavaScript turned on — nothing is sent to any server.</p></noscript>
 
+<!-- ============ LOADING SPLASH (shows on every load, fades out after boot) ============ -->
+<div class="splash no-print" id="splash">
+  <div class="splash-inner">
+    <svg class="splash-mark" viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="var(--accent)"/>
+      <path class="splash-lines" d="M9 10h14M9 16h14M9 22h8" stroke="#f5f2ea" stroke-width="2.6" stroke-linecap="round"/>
+    </svg>
+    <div class="splash-word">Tidy<em>Invoice</em></div>
+    <div class="splash-bar"><span></span></div>
+  </div>
+</div>
+
 <!-- ============ WELCOME / RESUME SCREEN (returning users only) ============ -->
 <div class="welcome no-print" id="welcome" hidden role="dialog" aria-label="Welcome back">
   <div class="welcome-card">
@@ -52,6 +64,17 @@
           <span class="brand-name">Tidy<em>Invoice</em></span>
         </div>
       </div>
+
+      <!-- first visit only: greet + capture the user's name -->
+      <div class="welcome-firstrun" id="welcome-firstrun" hidden>
+        <h2 class="welcome-title">Hello 👋</h2>
+        <p class="welcome-firstrun-sub">Welcome to TidyInvoice — free invoices, quotes and receipts that stay on your device. What should we call you?</p>
+        <form class="welcome-name-form" id="welcome-name-form">
+          <input type="text" id="welcome-name-input" placeholder="Your name" autocomplete="name" maxlength="40" aria-label="Your name">
+          <button type="submit" class="btn primary" id="welcome-name-submit">Get started</button>
+        </form>
+      </div>
+
       <h2 class="welcome-title" id="welcome-greeting">Welcome back</h2>
       <p class="welcome-bizline" id="welcome-bizline" hidden></p>
 
@@ -568,6 +591,6 @@
 }
 </script>
 
-<script src="app.js?v=26"></script>
+<script src="app.js?v=28"></script>
 </body>
 </html>
