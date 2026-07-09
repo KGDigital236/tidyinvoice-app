@@ -10,15 +10,21 @@
 <meta property="og:description" content="Professional invoices in seconds. VAT-ready. No signup. Data stays in your browser.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TidyInvoice">
-<meta name="twitter:card" content="summary">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="TidyInvoice — Free Invoice, Quote &amp; Receipt Generator">
 <meta name="twitter:description" content="Professional invoices in seconds. VAT-ready. No signup. Data stays in your browser.">
-<!-- TODO once deployed: <link rel="canonical" href="https://YOUR-DOMAIN/"> and og:url + og:image -->
+<!-- DEPLOY: search-replace https://tidyinvoice.example with the real domain (here, robots.txt and sitemap.xml) -->
+<link rel="canonical" href="https://tidyinvoice.example/">
+<meta property="og:url" content="https://tidyinvoice.example/">
+<meta property="og:image" content="https://tidyinvoice.example/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:image" content="https://tidyinvoice.example/og-image.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231e6f50'/%3E%3Cpath d='M9 10h14M9 16h14M9 22h8' stroke='%23f5f2ea' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1e6f50">
-<link rel="stylesheet" href="styles.css?v=20">
+<link rel="stylesheet" href="styles.css?v=21">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -53,6 +59,7 @@
         <div class="wstat"><span class="wstat-num" id="wstat-outstanding">—</span><span class="wstat-label">Outstanding</span></div>
         <div class="wstat"><span class="wstat-num" id="wstat-collected">—</span><span class="wstat-label">Collected</span></div>
         <div class="wstat"><span class="wstat-num" id="wstat-count">0</span><span class="wstat-label">Documents</span></div>
+        <div class="wstat wstat-overdue" id="wstat-overdue-tile" hidden><span class="wstat-num" id="wstat-overdue">0</span><span class="wstat-label">Overdue</span></div>
       </div>
 
       <button type="button" class="welcome-draft" id="welcome-draft" hidden>
@@ -64,7 +71,10 @@
       <div class="welcome-recent" id="welcome-recent-wrap" hidden>
         <div class="welcome-sec-head">
           <span class="welcome-sec-label">Recent documents</span>
-          <button type="button" class="btn ghost tiny" id="welcome-viewall">View all</button>
+          <span class="welcome-sec-actions">
+            <button type="button" class="btn ghost tiny" id="welcome-reports-btn" hidden>Reports</button>
+            <button type="button" class="btn ghost tiny" id="welcome-viewall">View all</button>
+          </span>
         </div>
         <ul id="welcome-recent"></ul>
       </div>
@@ -76,6 +86,10 @@
           <button type="button" class="btn" data-welcome-new="quote">New quote</button>
           <button type="button" class="btn" data-welcome-new="receipt">New receipt</button>
         </div>
+        <label class="welcome-client-pick" id="welcome-client-wrap" hidden>
+          <span class="welcome-sec-label">From a client</span>
+          <select id="welcome-client-new" aria-label="Start a new document from a saved client"></select>
+        </label>
       </div>
 
       <p class="welcome-foot">Everything is stored on this device — nothing is uploaded.</p>
@@ -103,6 +117,39 @@
 
       <ul id="welcome-all-list" class="welcome-all-list"></ul>
       <p class="wa-empty" id="wa-empty" hidden>No documents match.</p>
+    </div>
+
+    <!-- ---- REPORTS view ---- -->
+    <div class="welcome-view" id="welcome-reports" hidden>
+      <div class="welcome-head">
+        <button type="button" class="wa-back" id="welcome-reports-back" aria-label="Back">
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Back
+        </button>
+      </div>
+      <h2 class="welcome-title">Reports</h2>
+      <p class="rep-note">Totals are recalculated from your saved documents. Read-only.</p>
+
+      <div class="welcome-stats">
+        <div class="wstat"><span class="wstat-num" id="rep-outstanding">—</span><span class="wstat-label">Outstanding</span></div>
+        <div class="wstat wstat-overdue"><span class="wstat-num" id="rep-overdue">—</span><span class="wstat-label">Overdue</span></div>
+        <div class="wstat"><span class="wstat-num" id="rep-collected">—</span><span class="wstat-label">Collected</span></div>
+      </div>
+
+      <div class="rep-section">
+        <div class="welcome-sec-label">Overdue invoices</div>
+        <ul id="rep-overdue-list" class="rep-overdue-list"></ul>
+      </div>
+
+      <div class="rep-section" id="rep-month-wrap">
+        <div class="welcome-sec-label">By month</div>
+        <table class="rep-month-table">
+          <thead>
+            <tr><th>Month</th><th>Invoiced</th><th>VAT</th><th>Collected</th></tr>
+          </thead>
+          <tbody id="rep-month-body"></tbody>
+        </table>
+      </div>
     </div>
 
   </div>
@@ -186,6 +233,16 @@
             <input type="date" id="f-due">
           </label>
         </div>
+        <div class="field-row" id="wrap-status">
+          <label class="field">
+            <span>Status <small>(mark “Sent” to flag it overdue once the due date passes)</small></span>
+            <select id="f-status">
+              <option value="draft">Draft</option>
+              <option value="sent">Sent</option>
+              <option value="paid">Paid</option>
+            </select>
+          </label>
+        </div>
         <div class="field-row wrap-tight">
           <label class="field">
             <span>Layout</span>
@@ -193,6 +250,9 @@
               <button type="button" data-layout="classic" class="is-on">Classic</button>
               <button type="button" data-layout="minimal">Minimal</button>
               <button type="button" data-layout="letterhead">Letterhead</button>
+              <button type="button" data-layout="band">Band</button>
+              <button type="button" data-layout="compact">Compact</button>
+              <button type="button" data-layout="modern">Modern</button>
             </div>
           </label>
           <label class="field">
@@ -341,7 +401,7 @@
           <textarea id="f-payment" rows="3" placeholder="Bank: AIB&#10;IBAN: IE00 AIBK 0000 0000 0000 00&#10;BIC: AIBKIE2D"></textarea>
         </label>
         <label class="field">
-          <span>Notes / terms</span>
+          <span>Notes / terms <small>(saved &amp; reused on new documents)</small></span>
           <textarea id="f-notes" rows="3" placeholder="Payment due within 14 days. Thank you for your business!"></textarea>
         </label>
       </div>
@@ -350,12 +410,17 @@
     <div class="editor-foot">
       <button type="button" id="btn-convert" class="btn ghost" hidden>Convert quote → invoice</button>
       <button type="button" id="btn-share" class="btn ghost">Copy share link</button>
+      <button type="button" id="btn-email" class="btn ghost" title="Downloads the PDF and opens a pre-filled email — attach the PDF before sending">Email invoice</button>
       <span class="autosave-note" id="autosave-note">Draft autosaves in your browser</span>
     </div>
   </section>
 
   <!-- ============ PREVIEW ============ -->
   <section class="preview-pane" id="preview-pane" aria-label="Document preview">
+    <div class="overflow-hint no-print" id="overflow-hint" hidden role="status">
+      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 15 14H1z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6.2v3.4M8 11.4h.01" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      Content runs past one page — it may split when printed.
+    </div>
     <div class="sheet-scaler" id="sheet-scaler">
       <article class="sheet" id="sheet">
         <header class="s-head">
@@ -483,7 +548,7 @@
     </div>
   </div>
   <footer class="site-foot">
-    <span>© <span id="foot-year"></span> TidyInvoice · A <a href="#" rel="noopener">GreenSquare</a> project</span>
+    <span>© <span id="foot-year"></span> TidyInvoice · A GreenSquare project</span>
     <span>Your data stays on your device.</span>
   </footer>
 </section>
@@ -503,6 +568,6 @@
 }
 </script>
 
-<script src="app.js?v=20"></script>
+<script src="app.js?v=26"></script>
 </body>
 </html>

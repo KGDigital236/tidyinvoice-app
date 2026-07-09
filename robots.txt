@@ -1,5 +1,5 @@
 User-agent: *
 Allow: /
 
-# Add once deployed:
-# Sitemap: https://YOUR-DOMAIN/sitemap.xml
+# DEPLOY: replace https://tidyinvoice.example with the real domain
+Sitemap: https://tidyinvoice.example/sitemap.xml

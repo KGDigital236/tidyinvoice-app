@@ -90,6 +90,22 @@
     var t;
     return function () { clearTimeout(t); t = setTimeout(fn, ms); };
   }
+  // an invoice is overdue only when it was actually SENT and its due date has
+  // passed — drafts were never issued, so they can't be overdue
+  function isOverdue(d) {
+    if (!d || d.type !== "invoice" || d.status !== "sent" || !d.due) return false;
+    return d.due < todayISO(0);
+  }
+  // darken a #rrggbb hex toward black by amount (0..1) — used to derive an ink tone
+  function darken(hex, amount) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+    if (!m) return hex;
+    var n = parseInt(m[1], 16);
+    var r = Math.round(((n >> 16) & 255) * (1 - amount));
+    var g = Math.round(((n >> 8) & 255) * (1 - amount));
+    var b = Math.round((n & 255) * (1 - amount));
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+  }
 
   // ---------- state ----------
   var settings = load(LS.settings, {
@@ -156,6 +172,7 @@
       due: todayISO(14),
       reference: "",
       theme: settings.theme || "forest",
+      customAccent: settings.customAccent || "",
       client: { name: "", vat: "", address: "" },
       items: [blankItem()],
       discount: 0,
@@ -164,7 +181,7 @@
       layout: settings.layout || "classic",
       lang: settings.lang || "en",
       payment: settings.payment || "", // bank details persist — same on every invoice
-      notes: "",                        // per-document message — always starts blank
+      notes: settings.notes || "",     // your saved terms/notes carry into each new document
       status: "draft"
     };
   }
@@ -229,7 +246,12 @@
     settings.defaultVat = num($("f-default-vat").value);
     doc.payment = $("f-payment").value;
     doc.notes = $("f-notes").value;
-    settings.payment = doc.payment; // bank details are business-wide; notes stay per-document
+    // receipts are always paid; for invoices/quotes the editor status select drives it
+    if (doc.type !== "receipt" && $("f-status")) doc.status = $("f-status").value;
+    // your own reusable details persist across new documents (only the client resets):
+    // bank/payment AND notes/terms are remembered on the active business profile
+    settings.payment = doc.payment;
+    settings.notes = doc.notes;
     doc.lang = $("f-lang").value;
     settings.lang = doc.lang;
     var pfx = $("f-prefix").value.trim();
@@ -323,20 +345,22 @@
   });
 
   // ---------- totals ----------
-  function calcTotals() {
+  // pure: totals for any document (defaults to the one being edited)
+  function calcTotals(d) {
+    d = d || doc;
     var subtotal = 0;
-    doc.items.forEach(function (it) { subtotal += num(it.qty) * num(it.price); });
+    d.items.forEach(function (it) { subtotal += num(it.qty) * num(it.price); });
 
     var discountAmt = 0;
-    if (doc.discount > 0) {
-      discountAmt = doc.discountType === "percent"
-        ? subtotal * Math.min(doc.discount, 100) / 100
-        : Math.min(doc.discount, subtotal);
+    if (d.discount > 0) {
+      discountAmt = d.discountType === "percent"
+        ? subtotal * Math.min(d.discount, 100) / 100
+        : Math.min(d.discount, subtotal);
     }
     var factor = subtotal > 0 ? (subtotal - discountAmt) / subtotal : 0;
 
     var vatByRate = {};
-    doc.items.forEach(function (it) {
+    d.items.forEach(function (it) {
       var net = num(it.qty) * num(it.price) * factor;
       var rate = num(it.vat);
       if (rate > 0 && net > 0) {
@@ -347,8 +371,8 @@
     var vatTotal = 0;
     Object.keys(vatByRate).forEach(function (r) { vatTotal += vatByRate[r]; });
     var total = subtotal - discountAmt + vatTotal;
-    var paid = doc.type === "invoice" ? Math.min(num(doc.amountPaid), total) : 0;
-    return { subtotal: subtotal, discountAmt: discountAmt, vatByRate: vatByRate, total: total, paid: paid, balance: total - paid };
+    var paid = d.type === "invoice" ? Math.min(num(d.amountPaid), total) : 0;
+    return { subtotal: subtotal, discountAmt: discountAmt, vatByRate: vatByRate, vatTotal: vatTotal, total: total, paid: paid, balance: total - paid };
   }
 
   // ---------- preview render ----------
@@ -465,6 +489,16 @@
     $("s-foot-thanks").textContent = doc.type === "quote" ? L.quoteFoot : L.thanks;
 
     applyTheme(doc.theme);
+    updateOverflowHint();
+  }
+  // Non-blocking preview hint when the sheet grows past one A4 page. Screen-only:
+  // the hint element is .no-print and measurement never runs during printing.
+  function updateOverflowHint() {
+    var sheet = $("sheet");
+    var hint = $("overflow-hint");
+    if (!sheet || !hint) return;
+    // .sheet has min-height 1123px (one A4 page @96dpi); taller means it overflows
+    hint.hidden = sheet.offsetHeight <= 1130;
   }
   function cell(cls, text) {
     var td = document.createElement("td");
@@ -474,9 +508,16 @@
   }
 
   function applyTheme(name) {
-    var t = THEMES[name] || THEMES.forest;
-    document.documentElement.style.setProperty("--accent", t.accent);
-    document.documentElement.style.setProperty("--accent-ink", t.ink);
+    var accent, ink;
+    if (name === "custom" && doc && doc.customAccent) {
+      accent = doc.customAccent;
+      ink = darken(doc.customAccent, 0.22);
+    } else {
+      var t = THEMES[name] || THEMES.forest;
+      accent = t.accent; ink = t.ink;
+    }
+    document.documentElement.style.setProperty("--accent", accent);
+    document.documentElement.style.setProperty("--accent-ink", ink);
   }
 
   // ---------- type / theme / logo UI sync ----------
@@ -494,6 +535,9 @@
     $("btn-convert").hidden = doc.type !== "quote";
     $("f-prefix").value = settings.prefixes[doc.type];
     $("f-next-number").value = settings.counters[doc.type] || 1;
+    // status select mirrors the doc; receipts are always paid so we hide the control
+    $("wrap-status").style.display = doc.type === "receipt" ? "none" : "";
+    $("f-status").value = doc.status === "sent" || doc.status === "paid" ? doc.status : "draft";
   }
   function syncLayoutUI() {
     document.querySelectorAll("#layout-btns button").forEach(function (b) {
@@ -517,9 +561,86 @@
     $("btn-profile-del").hidden = settings.profiles.length < 2;
   }
   function syncThemeUI() {
+    renderAccentSwatch();
     document.querySelectorAll(".swatch").forEach(function (s) {
       s.classList.toggle("is-on", s.dataset.theme === doc.theme);
     });
+  }
+  // Suggested accent sampled from the logo — a SUGGESTION only. It appears as an
+  // extra swatch; the user must click it to apply. Never changes the theme silently.
+  function renderAccentSwatch() {
+    var row = $("theme-swatches");
+    var existing = row.querySelector('.swatch[data-theme="custom"]');
+    if (!settings.logoAccent) { if (existing) existing.remove(); return; }
+    var sw = existing || document.createElement("button");
+    sw.type = "button";
+    sw.className = "swatch swatch-suggested" + (doc.theme === "custom" ? " is-on" : "");
+    sw.dataset.theme = "custom";
+    sw.dataset.accent = settings.logoAccent;
+    sw.style.setProperty("--sw", settings.logoAccent);
+    sw.title = "Suggested from your logo";
+    sw.setAttribute("aria-label", "Accent suggested from your logo");
+    if (!existing) row.appendChild(sw);
+  }
+  // Sample a dominant colour from a logo data URL using a canvas (no library).
+  // Averages the vivid, non-transparent, non-near-white/black pixels.
+  function sampleLogoColor(src, cb) {
+    try {
+      var img = new Image();
+      img.onload = function () {
+        try {
+          // size-less SVGs report 0×0 and rasterise empty — give them dimensions
+          if (!img.naturalWidth || !img.naturalHeight) { img.width = 200; img.height = 200; }
+          var c = document.createElement("canvas");
+          var w = c.width = 40, h = c.height = 40;
+          var ctx = c.getContext("2d");
+          ctx.drawImage(img, 0, 0, w, h);
+          var data = ctx.getImageData(0, 0, w, h).data;
+          var r = 0, g = 0, b = 0, n = 0;
+          for (var i = 0; i < data.length; i += 4) {
+            var pr = data[i], pg = data[i + 1], pb = data[i + 2], pa = data[i + 3];
+            if (pa < 200) continue;                       // skip transparent
+            var mx = Math.max(pr, pg, pb), mn = Math.min(pr, pg, pb);
+            if (mx > 240 && mn > 240) continue;           // skip near-white
+            if (mx < 30) continue;                        // skip near-black
+            if (mx - mn < 18 && mx > 200) continue;       // skip pale greys
+            r += pr; g += pg; b += pb; n++;
+          }
+          if (n < 8) return;                              // too little colour to trust
+          var hex = "#" + [r, g, b].map(function (v) {
+            return ("0" + Math.round(v / n).toString(16)).slice(-2);
+          }).join("");
+          cb(hex);
+        } catch (e) { /* tainted/undrawable — no suggestion */ }
+      };
+      img.onerror = function () {};
+      img.src = src;
+    } catch (e) { /* ignore */ }
+  }
+  // Downscale a logo (data URL) through a canvas so we don't store a multi-MB
+  // base64 blob in settings AND every profile snapshot. Long edge capped at
+  // maxEdge; exported PNG keeps transparency. On any failure the raw src is
+  // returned so a logo never silently disappears.
+  function downscaleImage(src, maxEdge, cb) {
+    try {
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var iw = img.naturalWidth || img.width || maxEdge;
+          var ih = img.naturalHeight || img.height || maxEdge;
+          var scale = Math.min(1, maxEdge / Math.max(iw, ih));
+          var w = Math.max(1, Math.round(iw * scale));
+          var h = Math.max(1, Math.round(ih * scale));
+          var c = document.createElement("canvas");
+          c.width = w; c.height = h;
+          c.getContext("2d").drawImage(img, 0, 0, w, h);
+          var out = c.toDataURL("image/png");
+          cb(out && out.length < src.length ? out : src); // never store a bigger result
+        } catch (e) { cb(src); }
+      };
+      img.onerror = function () { cb(src); };
+      img.src = src;
+    } catch (e) { cb(src); }
   }
   function syncLogoUI() {
     var thumb = $("logo-thumb");
@@ -623,7 +744,7 @@
     }
   }
 
-  function toast(msg) {
+  function toast(msg, actionLabel, actionFn) {
     var t = $("toast");
     if (!t) {
       t = document.createElement("div");
@@ -632,10 +753,23 @@
       t.setAttribute("role", "status");
       document.body.appendChild(t);
     }
-    t.textContent = msg;
+    t.textContent = msg; // clears any previous action button
+    if (actionLabel && actionFn) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "toast-action";
+      b.textContent = actionLabel;
+      b.addEventListener("click", function () {
+        clearTimeout(toast._t);
+        t.classList.remove("show");
+        actionFn();
+      });
+      t.appendChild(b);
+    }
     t.classList.add("show");
     clearTimeout(toast._t);
-    toast._t = setTimeout(function () { t.classList.remove("show"); }, 2600);
+    // give undo actions longer to be clicked than a plain notice
+    toast._t = setTimeout(function () { t.classList.remove("show"); }, actionFn ? 6000 : 2600);
   }
 
   function flashSaved() {
@@ -664,6 +798,12 @@
       var numEl = document.createElement("span");
       numEl.className = "hi-number";
       numEl.textContent = d.number;
+      if (isOverdue(d)) {
+        var odh = document.createElement("span");
+        odh.className = "hi-overdue";
+        odh.textContent = "overdue";
+        numEl.appendChild(odh);
+      }
       var totalEl = document.createElement("span");
       totalEl.className = "hi-total";
       totalEl.textContent = money(d.totalSnapshot || 0, d.currency);
@@ -742,20 +882,38 @@
     doc.date = todayISO(0);
     doc.due = todayISO(14);
     doc.number = autoNumber(doc.type);
+    doc.amountPaid = 0; // a duplicate is a fresh document — don't carry the old deposit
     savedId = null;
     fillEditor();
     render();
     persistDraft();
     closeHistory();
   }
-  function deleteDoc(id) {
-    var d = docs.find(function (x) { return x.id === id; });
-    if (!d) return;
-    if (!confirm("Delete " + d.number + "? This can't be undone.")) return;
-    docs = docs.filter(function (x) { return x.id !== id; });
+  // Delete with an undo window instead of a permanent confirm(). The removed doc
+  // is buffered in the toast's Undo closure so it can splice back at its old spot.
+  // `refresh` re-renders whatever list the delete was triggered from.
+  // Limitation (accepted): there's a single #toast, so deleting two docs in quick
+  // succession leaves only the latest Undo reachable — both deletions are saved
+  // correctly, but the earlier one can't be undone from the UI once the second
+  // toast replaces it.
+  function deleteDoc(id, refresh) {
+    var idx = docs.findIndex(function (x) { return x.id === id; });
+    if (idx < 0) return;
+    var removed = docs[idx];
+    var wasCurrent = savedId === id;
+    docs.splice(idx, 1);
+    if (wasCurrent) savedId = null;
     save(LS.docs, docs);
-    if (savedId === id) savedId = null;
     renderHistory();
+    if (refresh) refresh();
+    toast("Deleted " + removed.number, "Undo", function () {
+      docs.splice(Math.min(idx, docs.length), 0, removed);
+      if (wasCurrent) savedId = removed.id;
+      save(LS.docs, docs);
+      renderHistory();
+      if (refresh) refresh();
+      if (!$("welcome").hidden) showWelcome(true);
+    });
   }
 
   // ---------- backup export / import ----------
@@ -892,6 +1050,19 @@
 
   $("f-client-name").addEventListener("change", maybeAutofillClient);
 
+  // Editor status select. The bubbling "input" event already updates doc.status via
+  // readEditor + persists the draft; here we also commit to docs[] when the document
+  // is already saved, so the Saved drawer, welcome list and overdue flags update now.
+  $("f-status").addEventListener("change", function () {
+    doc.status = this.value;
+    if (savedId) {
+      var d = docs.find(function (x) { return x.id === savedId; });
+      if (d) { d.status = doc.status; save(LS.docs, docs); renderHistory(); }
+    }
+    render();
+    persistDraft();
+  });
+
   $("items-list").addEventListener("click", function (e) {
     var btn = e.target.closest(".item-remove");
     if (!btn) return;
@@ -974,6 +1145,10 @@
     if (!sw) return;
     doc.theme = sw.dataset.theme;
     settings.theme = sw.dataset.theme;
+    if (sw.dataset.theme === "custom") {
+      doc.customAccent = sw.dataset.accent || settings.logoAccent || "";
+      settings.customAccent = doc.customAccent;
+    }
     syncThemeUI();
     render();
     persistDraft();
@@ -989,20 +1164,40 @@
     }
     var reader = new FileReader();
     reader.onload = function () {
-      settings.logo = reader.result;
-      save(LS.settings, settings);
-      syncLogoUI();
-      render();
+      // downscale before storing — the logo lives in settings and every profile
+      // snapshot, so a full-size base64 blob can blow the localStorage quota
+      downscaleImage(reader.result, 600, function (stored) {
+        settings.logo = stored;
+        save(LS.settings, settings);
+        syncLogoUI();
+        render();
+        sampleLogoColor(stored, function (hex) {
+          settings.logoAccent = hex;
+          save(LS.settings, settings);
+          renderAccentSwatch();
+        });
+      });
     };
     reader.readAsDataURL(file);
   });
 
   $("btn-logo-remove").addEventListener("click", function () {
     settings.logo = "";
+    settings.logoAccent = "";
+    // the custom swatch disappears with the logo, so a doc still themed "custom"
+    // would keep the colour with no way to reselect it — revert to a preset instead
+    if (doc.theme === "custom") {
+      doc.theme = "forest";
+      settings.theme = "forest";
+      doc.customAccent = "";
+      settings.customAccent = "";
+    }
     save(LS.settings, settings);
     $("f-logo").value = "";
     syncLogoUI();
+    syncThemeUI();
     render();
+    persistDraft();
   });
 
   function hasContent(d) {
@@ -1153,7 +1348,7 @@
       biz: { bizName: settings.bizName, bizVat: settings.bizVat, bizAddress: settings.bizAddress }
     };
     var url = location.origin + location.pathname + "#d=" + b64urlEncode(JSON.stringify(payload));
-    if (url.length > 7500) { alert("This document is too large to share as a link — try shortening the notes."); return; }
+    if (url.length > 7500) { alert("This document is too large to share as a link. Documents with many line items (or very long notes) can exceed the limit — try removing some lines or shortening notes, or use Download PDF and send that instead."); return; }
     var btn = this;
     function done() {
       var old = "Copy share link";
@@ -1165,6 +1360,39 @@
     } else {
       prompt("Copy this link:", url);
     }
+  });
+
+  // ---------- send by email (mailto) ----------
+  // mailto can't carry attachments, so we download the PDF first and remind the
+  // user to attach it, then open a pre-filled draft (recipient pulled from the
+  // client contact block if an email address is present there).
+  $("btn-email").addEventListener("click", function () {
+    readEditor();
+    var L = LANGS[doc.lang] || LANGS.en;
+    var typeName = doc.type.charAt(0).toUpperCase() + doc.type.slice(1);
+    var t = calcTotals();
+    var amount = money(t.paid > 0 ? t.balance : t.total, doc.currency);
+    // first email address found in the client contact block, if any
+    var m = (doc.client.address || "").match(/[^\s,;<]+@[^\s,;>]+\.[^\s,;>]+/);
+    var to = m ? m[0] : "";
+    var subject = typeName + " " + (doc.number || "") + (settings.bizName ? " from " + settings.bizName : "");
+    var lines = [
+      "Hi" + (doc.client.name ? " " + doc.client.name : "") + ",",
+      "",
+      "Please find attached " + typeName.toLowerCase() + " " + (doc.number || "") + " for " + amount + "."
+    ];
+    if (doc.type === "quote" && doc.due) lines.push("This quote is valid until " + fmtDate(doc.due, L.locale) + ".");
+    else if (doc.type === "invoice" && doc.due) lines.push("Payment is due by " + fmtDate(doc.due, L.locale) + ".");
+    lines.push("", "Thank you,");
+    if (settings.bizName) lines.push(settings.bizName);
+    // download the PDF so it's ready to attach, then open the draft
+    toast("PDF downloaded — attach it before sending.");
+    printPDF();
+    setTimeout(function () {
+      location.href = "mailto:" + encodeURIComponent(to) +
+        "?subject=" + encodeURIComponent(subject) +
+        "&body=" + encodeURIComponent(lines.join("\n"));
+    }, 500);
   });
 
   function exitSharedView(keepDoc) {
@@ -1248,7 +1476,14 @@
     var total = document.createElement("span");
     total.className = "wr-total";
     total.textContent = money(d.totalSnapshot || 0, d.currency);
-    open.append(num, client, pill, total);
+    open.append(num, client, pill);
+    if (isOverdue(d)) {
+      var od = document.createElement("span");
+      od.className = "wr-pill overdue";
+      od.textContent = "overdue";
+      open.append(od);
+    }
+    open.append(total);
     li.appendChild(open);
 
     function act(label, title, fn) {
@@ -1263,12 +1498,72 @@
     li.appendChild(act("Duplicate", "New copy for the same client", function () { duplicateDoc(d.id); hideWelcome(); }));
     li.appendChild(act("PDF", "Open and download as PDF", function () { loadDoc(d.id); hideWelcome(); printPDF(); }));
     if (opts.onDelete) {
-      var del = act("Delete", null, function () { deleteDoc(d.id); opts.onDelete(); });
+      var del = act("Delete", null, function () { deleteDoc(d.id, opts.onDelete); });
       del.classList.add("danger");
       li.appendChild(del);
     }
     return li;
   }
+  // Start a fresh document seeded from a client's most recent document — their
+  // details and last line items. Numbering still auto-increments as normal.
+  function newFromClient(name) {
+    if (!name) return;
+    var src = docs.find(function (d) {
+      return d.client && d.client.name && d.client.name.toLowerCase() === name.toLowerCase();
+    });
+    keepCurrentIfMeaningful();
+    if (src) {
+      doc = JSON.parse(JSON.stringify(src));
+      doc.id = null;
+      doc.status = doc.type === "receipt" ? "paid" : "draft";
+      doc.date = todayISO(0);
+      doc.due = todayISO(14);
+      doc.number = autoNumber(doc.type);
+      doc.amountPaid = 0;
+      // reset per-document fields (last job's PO/discount must not carry over);
+      // keep items, payment, currency, layout and theme; notes fall back to your saved terms
+      doc.reference = "";
+      doc.notes = settings.notes || "";
+      doc.discount = 0;
+      doc.discountType = "percent";
+      delete doc.savedAt;
+      delete doc.totalSnapshot;
+    } else {
+      doc = newDoc("invoice");
+      var c = clients.find(function (x) { return x.name.toLowerCase() === name.toLowerCase(); });
+      if (c) doc.client = { name: c.name, vat: c.vat || "", address: c.address || "" };
+    }
+    savedId = null;
+    fillEditor();
+    render();
+    persistDraft();
+    hideWelcome();
+    toast("New " + doc.type + " for " + name);
+  }
+  // Populate the welcome "new from a client" picker with clients that have a
+  // saved document to seed from (most-recent order follows docs[]).
+  function renderWelcomeClientNew() {
+    var wrap = $("welcome-client-wrap");
+    var sel = $("welcome-client-new");
+    if (!wrap || !sel) return;
+    var names = [];
+    docs.forEach(function (d) {
+      var nm = d.client && d.client.name;
+      if (nm && names.indexOf(nm) < 0) names.push(nm);
+    });
+    if (!names.length) { wrap.hidden = true; return; }
+    sel.textContent = "";
+    var def = document.createElement("option");
+    def.value = ""; def.textContent = "New from a client…";
+    sel.appendChild(def);
+    names.forEach(function (nm) {
+      var o = document.createElement("option");
+      o.value = nm; o.textContent = nm;
+      sel.appendChild(o);
+    });
+    wrap.hidden = false;
+  }
+
   function showWelcome(force) {
     if (isDemo || sharedView) return;
     var hasDraftContent = doc && hasContent(doc);
@@ -1285,11 +1580,17 @@
 
     // money at a glance
     var outstanding = sumByCurrency(docs.filter(function (d) { return d.type === "invoice" && d.status === "sent"; }));
-    var collected = sumByCurrency(docs.filter(function (d) { return d.status === "paid"; }));
+    // "Collected" = paid INVOICES only. Receipts are excluded because a receipt is
+    // usually issued alongside a paid invoice for the same money — counting both
+    // would double the figure. (Same rule in renderReports.)
+    var collected = sumByCurrency(docs.filter(function (d) { return d.type === "invoice" && d.status === "paid"; }));
     $("wstat-outstanding").textContent = outstanding || money(0, settings.currency);
     $("wstat-collected").textContent = collected || money(0, settings.currency);
     $("wstat-count").textContent = docs.length;
     $("welcome-stats").hidden = docs.length === 0;
+    var overdueCount = docs.filter(isOverdue).length;
+    $("wstat-overdue").textContent = overdueCount;
+    $("wstat-overdue-tile").hidden = overdueCount === 0;
 
     // continue-draft card
     var draftBtn = $("welcome-draft");
@@ -1303,11 +1604,13 @@
       draftBtn.hidden = true;
     }
 
-    // recent documents with status + quick actions
+    // recent documents with status + quick actions (Delete rebuilds this screen)
     var ul = $("welcome-recent");
     ul.textContent = "";
-    docs.slice(0, 5).forEach(function (d) { ul.appendChild(buildDocRow(d)); });
+    docs.slice(0, 5).forEach(function (d) { ul.appendChild(buildDocRow(d, { onDelete: function () { showWelcome(true); } })); });
     $("welcome-recent-wrap").hidden = docs.length === 0;
+    $("welcome-reports-btn").hidden = docs.length === 0;
+    renderWelcomeClientNew();
 
     $("welcome").hidden = false;
   }
@@ -1317,6 +1620,7 @@
   function welcomeShowView(name) {
     $("welcome-home").hidden = name !== "home";
     $("welcome-all").hidden = name !== "all";
+    $("welcome-reports").hidden = name !== "reports";
     $("welcome").scrollTop = 0;
     var card = document.querySelector(".welcome-card");
     if (card) { card.style.animation = "none"; void card.offsetWidth; card.style.animation = ""; }
@@ -1338,6 +1642,91 @@
       list.appendChild(buildDocRow(d, { showDate: true, onDelete: renderWelcomeAll }));
     });
   }
+
+  // ----- welcome: read-only reports dashboard -----
+  // Sum a numeric field across docs, grouped by currency so mixed-currency
+  // books don't silently add euros to dollars. Returns a joined string.
+  function sumByCur(list, fn) {
+    var by = {};
+    list.forEach(function (d) { by[d.currency] = (by[d.currency] || 0) + fn(d); });
+    var parts = Object.keys(by)
+      .filter(function (c) { return Math.abs(by[c]) > 0.005; })
+      .map(function (c) { return money(by[c], c); });
+    return parts.length ? parts.join(" + ") : money(0, settings.currency);
+  }
+  function repCell(text) { var td = document.createElement("td"); td.textContent = text; return td; }
+  function monthLabel(m) {
+    var p = m.split("-");
+    var d = new Date(+p[0], +p[1] - 1, 1);
+    return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  }
+  function renderReports() {
+    var invoices = docs.filter(function (d) { return d.type === "invoice"; });
+    var outstanding = docs.filter(function (d) { return d.type === "invoice" && d.status === "sent"; });
+    var overdue = docs.filter(isOverdue);
+    // paid INVOICES only — receipts for the same money would double-count
+    // (same rule as the welcome-screen "Collected" stat)
+    var paidDocs = docs.filter(function (d) { return d.type === "invoice" && d.status === "paid"; });
+
+    $("rep-outstanding").textContent = sumByCur(outstanding, function (d) { return d.totalSnapshot || 0; });
+    $("rep-overdue").textContent = sumByCur(overdue, function (d) { return d.totalSnapshot || 0; });
+    $("rep-collected").textContent = sumByCur(paidDocs, function (d) { return d.totalSnapshot || 0; });
+
+    var ol = $("rep-overdue-list");
+    ol.textContent = "";
+    if (!overdue.length) {
+      var li0 = document.createElement("li");
+      li0.className = "rep-empty-row";
+      li0.textContent = "Nothing overdue.";
+      ol.appendChild(li0);
+    } else {
+      overdue.slice().sort(function (a, b) { return (a.due || "").localeCompare(b.due || ""); }).forEach(function (d) {
+        var li = document.createElement("li");
+        var b = document.createElement("button");
+        b.type = "button"; b.className = "rep-od-row";
+        b.addEventListener("click", function () { loadDoc(d.id); hideWelcome(); });
+        var n = document.createElement("span"); n.className = "wr-num"; n.textContent = d.number;
+        var c = document.createElement("span"); c.className = "wr-client";
+        c.textContent = (d.client.name || "No client") + " · due " + fmtDate(d.due);
+        var t = document.createElement("span"); t.className = "wr-total";
+        t.textContent = money(d.totalSnapshot || 0, d.currency);
+        b.append(n, c, t);
+        li.appendChild(b);
+        ol.appendChild(li);
+      });
+    }
+
+    var months = [];
+    docs.forEach(function (d) {
+      var m = (d.date || "").slice(0, 7);
+      if (m && months.indexOf(m) < 0) months.push(m);
+    });
+    months.sort().reverse();
+    months = months.slice(0, 6);
+    var tb = $("rep-month-body");
+    tb.textContent = "";
+    $("rep-month-wrap").hidden = months.length === 0;
+    months.forEach(function (m) {
+      var inMonth = function (d) { return (d.date || "").slice(0, 7) === m; };
+      var monInv = invoices.filter(inMonth);
+      var monPaid = paidDocs.filter(inMonth);
+      var tr = document.createElement("tr");
+      tr.append(
+        repCell(monthLabel(m)),
+        repCell(sumByCur(monInv, function (d) { return d.totalSnapshot || 0; })),
+        repCell(sumByCur(monInv, function (d) { return calcTotals(d).vatTotal; })),
+        repCell(sumByCur(monPaid, function (d) { return d.totalSnapshot || 0; }))
+      );
+      tb.appendChild(tr);
+    });
+  }
+  $("welcome-reports-btn").addEventListener("click", function () { renderReports(); welcomeShowView("reports"); });
+  $("welcome-reports-back").addEventListener("click", function () { showWelcome(); welcomeShowView("home"); });
+  $("welcome-client-new").addEventListener("change", function () {
+    var name = this.value;
+    this.value = "";
+    if (name) newFromClient(name);
+  });
 
   $("welcome-viewall").addEventListener("click", function () {
     waFilter = "all";

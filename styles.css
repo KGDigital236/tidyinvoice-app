@@ -18,6 +18,11 @@
   --radius: 10px;
   --shadow: 0 1px 2px rgba(34,39,31,.06), 0 8px 28px rgba(34,39,31,.09);
   --font: "Segoe UI", system-ui, -apple-system, sans-serif;
+  /* Document faces — system stacks, no binaries, so offline weight is unchanged.
+     A true self-hosted webfont would add ~50-150KB per family to the SW cache;
+     kept out until specific families are approved. */
+  --sheet-sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --sheet-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
 }
 
 /* dark mode — editor chrome only; the document sheet stays paper-white */
@@ -275,7 +280,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .field-row.wrap-tight { flex-wrap: wrap; }
 .field-row.wrap-tight .field { flex: 1 1 205px; }
 
-.layout-btns { display: flex; gap: 6px; padding-top: 2px; }
+.layout-btns { display: flex; gap: 6px; padding-top: 2px; flex-wrap: wrap; }
 .layout-btns button {
   border: 1px solid var(--line);
   background: var(--field-bg);
@@ -284,7 +289,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   font-size: 12px;
   font-weight: 600;
   color: var(--ink-soft);
-  flex: 1;
+  flex: 1 1 28%;
   white-space: nowrap;
   min-width: 0;
 }
@@ -406,6 +411,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   flex-direction: column;
   color: #1d2119;
   font-size: 14px;
+  font-family: var(--sheet-sans);
 }
 
 .s-head { display: flex; justify-content: space-between; gap: 30px; }
@@ -562,6 +568,49 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .sheet[data-layout="letterhead"] .s-meta { margin: 0 auto; }
 .sheet[data-layout="letterhead"] .s-meta th, .sheet[data-layout="letterhead"] .s-meta td { text-align: center; padding: 2px 8px; }
 .sheet[data-layout="letterhead"] .s-parties { margin-top: 26px; }
+/* Letterhead leans on a serif display face for a classic printed-stationery feel */
+.sheet[data-layout="letterhead"] { font-family: var(--sheet-serif); }
+.sheet[data-layout="letterhead"] .s-doctitle { font-family: var(--sheet-serif); font-weight: 700; }
+
+/* Band — full-bleed accent header band (colour prints; see print block for A4 bleed) */
+.sheet[data-layout="band"] { padding-top: 0; }
+.sheet[data-layout="band"] .s-head {
+  background: var(--accent);
+  margin: 0 -58px;
+  padding: 44px 58px 26px;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.sheet[data-layout="band"] .s-bizname { color: #fff; }
+.sheet[data-layout="band"] .s-bizmeta { color: rgba(255,255,255,.85); }
+.sheet[data-layout="band"] .s-doctitle { color: #fff; }
+.sheet[data-layout="band"] .s-meta th { color: rgba(255,255,255,.8); }
+.sheet[data-layout="band"] .s-meta td { color: #fff; }
+.sheet[data-layout="band"] .s-parties { margin-top: 30px; }
+
+/* Compact — dense type and spacing for long item lists */
+.sheet[data-layout="compact"] { padding: 40px 46px 30px; font-size: 12.5px; }
+.sheet[data-layout="compact"] .s-doctitle { font-size: 26px; margin-bottom: 8px; }
+.sheet[data-layout="compact"] .s-bizname { font-size: 17px; }
+.sheet[data-layout="compact"] .s-parties { margin-top: 20px; }
+.sheet[data-layout="compact"] .s-items { margin-top: 18px; }
+.sheet[data-layout="compact"] .s-items th { padding: 6px 9px; }
+.sheet[data-layout="compact"] .s-items td { padding: 6px 9px; font-size: 12.5px; }
+.sheet[data-layout="compact"] .s-totals-wrap { margin-top: 16px; }
+.sheet[data-layout="compact"] .s-foot { padding-top: 20px; }
+
+/* Modern — left-aligned sans "startup" look, thin accent rules */
+.sheet[data-layout="modern"] .s-head { align-items: flex-start; }
+.sheet[data-layout="modern"] .s-doccol { text-align: left; }
+.sheet[data-layout="modern"] .s-doctitle { font-weight: 700; letter-spacing: .02em; font-size: 30px; }
+.sheet[data-layout="modern"] .s-meta { margin-left: 0; }
+.sheet[data-layout="modern"] .s-meta th, .sheet[data-layout="modern"] .s-meta td { text-align: left; }
+.sheet[data-layout="modern"] .s-items th {
+  background: transparent;
+  color: var(--accent-ink);
+  border-bottom: 1.5px solid var(--accent);
+}
+.sheet[data-layout="modern"] .s-items tbody tr:nth-child(even) td { background: transparent; }
+.sheet[data-layout="modern"] .s-items td { border-bottom: 1px solid #f0eee6; }
 
 /* ============ Welcome / resume screen ============ */
 .welcome[hidden] { display: none; }
@@ -991,6 +1040,121 @@ body[data-ui="dark"] .hi-status-select.paid { background-color: #1e2c24; color: 
   .landing h1 { font-size: 22px; }
 }
 
+/* ============ Overdue markers (#7) ============ */
+.wr-pill.overdue { background: #f6e3df; color: #a33b2a; }
+body[data-ui="dark"] .wr-pill.overdue { background: #3a2420; color: #e0705c; }
+.hi-overdue {
+  margin-left: 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--danger);
+  background: #f6e3df;
+  border-radius: 99px;
+  padding: 1px 7px;
+  vertical-align: middle;
+}
+body[data-ui="dark"] .hi-overdue { background: #3a2420; }
+.wstat-overdue[hidden] { display: none; }
+.wstat-overdue .wstat-num { color: var(--danger); }
+
+/* ============ Suggested accent swatch (#3) ============ */
+.swatch-suggested { border-style: dashed; border-color: var(--ink-soft); }
+.swatch-suggested.is-on { border-style: solid; border-color: var(--ink); }
+
+/* ============ Toast undo action (#9) ============ */
+.toast-action {
+  border: 0;
+  background: transparent;
+  color: #7fd3a8;
+  font-weight: 700;
+  font-size: 13px;
+  margin-left: 12px;
+  padding: 2px 4px;
+  text-decoration: underline;
+  pointer-events: auto;
+}
+.toast-action:hover { color: #a8e5c6; }
+
+/* ============ One-page overflow hint (#4) ============ */
+.preview-pane { position: relative; }
+.overflow-hint[hidden] { display: none; }
+.overflow-hint {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fbf1d9;
+  color: #8a6d1f;
+  border: 1px solid #ecd8a6;
+  border-radius: 99px;
+  padding: 5px 13px;
+  font-size: 12.5px;
+  font-weight: 600;
+  box-shadow: var(--shadow);
+  max-width: calc(100% - 28px);
+}
+body[data-ui="dark"] .overflow-hint { background: #2e2716; color: #e6c877; border-color: #4a3f22; }
+
+/* ============ Email button (#8) — inherits .btn.ghost, no extra rules needed ============ */
+
+/* ============ Welcome extras: section actions + client picker (#5, #6) ============ */
+.welcome-sec-actions { display: flex; gap: 6px; }
+.welcome-client-pick { display: flex; flex-direction: column; gap: 5px; margin-top: 12px; }
+.welcome-client-pick[hidden] { display: none; }
+.welcome-client-pick select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 11px;
+  background: var(--field-bg);
+  color: var(--ink);
+  width: 100%;
+}
+.welcome-client-pick select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+
+/* ============ Reports view (#6) ============ */
+.rep-note { color: var(--ink-soft); font-size: 12.5px; margin: 4px 0 16px; }
+.rep-section { margin-bottom: 20px; }
+.rep-section[hidden] { display: none; }
+.rep-overdue-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rep-empty-row { color: var(--ink-soft); font-size: 13px; padding: 4px 2px; }
+.rep-od-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line-soft);
+  background: var(--card);
+  border-radius: 9px;
+  padding: 8px 10px;
+  color: var(--ink);
+  font-size: 13.5px;
+}
+.rep-od-row:hover { border-color: var(--danger); }
+.rep-od-row .wr-total { color: var(--danger); }
+.rep-month-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.rep-month-table th, .rep-month-table td {
+  text-align: right;
+  padding: 7px 8px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--line-soft);
+  font-variant-numeric: tabular-nums;
+}
+.rep-month-table th:first-child, .rep-month-table td:first-child { text-align: left; font-weight: 600; }
+.rep-month-table thead th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
 /* ============ PRINT ============ */
 @media print {
   @page { size: A4; margin: 0; }
@@ -1016,4 +1180,7 @@ body[data-ui="dark"] .hi-status-select.paid { background-color: #1e2c24; color: 
   .s-items th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .s-items tbody tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .s-items .placeholder { display: none; }
+  /* Band layout: re-bleed the header to the A4 page edge (print padding is 15mm) */
+  .sheet[data-layout="band"] { padding-top: 0; }
+  .sheet[data-layout="band"] .s-head { margin: 0 -15mm; padding: 12mm 15mm 8mm; }
 }

@@ -1,4 +1,6 @@
 *.json.bak
 tidyinvoice-backup-*.json
+tidyinvoice-documents-*.csv
 Thumbs.db
 desktop.ini
+docs/
