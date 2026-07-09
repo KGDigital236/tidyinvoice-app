@@ -1,5 +1,4 @@
 User-agent: *
 Allow: /
 
-# DEPLOY: replace https://tidyinvoice.example with the real domain
-Sitemap: https://tidyinvoice.example/sitemap.xml
+Sitemap: https://kgdigital236.github.io/tidyinvoice-app/sitemap.xml

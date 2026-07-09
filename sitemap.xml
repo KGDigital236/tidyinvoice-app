@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- DEPLOY: replace https://tidyinvoice.example with the real domain -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://tidyinvoice.example/</loc>
+    <loc>https://kgdigital236.github.io/tidyinvoice-app/</loc>
     <changefreq>monthly</changefreq>
   </url>
 </urlset>
