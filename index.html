@@ -116,6 +116,10 @@
           <span class="welcome-sec-label">From a client</span>
           <select id="welcome-client-new" aria-label="Start a new document from a saved client"></select>
         </label>
+        <div class="welcome-client-pick welcome-template-pick" id="welcome-template-wrap" hidden>
+          <span class="welcome-sec-label">From a template <span class="pro-tag">Pro</span></span>
+          <select id="welcome-template-new" aria-label="Start a new document from a saved template"></select>
+        </div>
       </div>
 
       <p class="welcome-foot">Everything is stored on this device — nothing is uploaded.</p>
@@ -479,6 +483,7 @@
       <button type="button" id="btn-convert" class="btn ghost" hidden>Convert quote → invoice</button>
       <button type="button" id="btn-share" class="btn ghost">Copy share link</button>
       <button type="button" id="btn-email" class="btn ghost" title="Downloads the PDF and opens a pre-filled email — attach the PDF before sending">Email invoice</button>
+      <button type="button" id="btn-save-template" class="btn ghost" title="Save this document's items, terms, notes, layout and currency as a reusable starting point">Save as template <span class="pro-tag">Pro</span></button>
       <span class="autosave-note" id="autosave-note">Draft autosaves in your browser</span>
     </div>
   </section>

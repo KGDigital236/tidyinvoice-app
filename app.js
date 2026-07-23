@@ -11,7 +11,8 @@
     docs: "tidyinvoice_docs",
     clients: "tidyinvoice_clients",
     draft: "tidyinvoice_draft",
-    license: "tidyinvoice_license"
+    license: "tidyinvoice_license",
+    templates: "tidyinvoice_templates"
   };
 
   var THEMES = {
@@ -44,10 +45,13 @@
       return raw ? JSON.parse(raw) : fallback;
     } catch (e) { return fallback; }
   }
+  // Returns true on a successful write (or in demo, where writing is intentionally
+  // skipped); false only when the browser rejected the write (quota). Callers that
+  // can roll back a change on failure check the return; others ignore it.
   function save(key, val) {
-    if (isDemo) return; // demo mode never touches real data
-    try { localStorage.setItem(key, JSON.stringify(val)); }
-    catch (e) { /* quota exceeded (usually huge logo) — warn once */ warnQuota(); }
+    if (isDemo) return true; // demo mode never touches real data
+    try { localStorage.setItem(key, JSON.stringify(val)); return true; }
+    catch (e) { /* quota exceeded (usually huge logo) — warn once */ warnQuota(); return false; }
   }
   var quotaWarned = false;
   function warnQuota() {
@@ -121,7 +125,8 @@
   // data-pro on <body> is the single source of truth for CSS/JS gating (Pro tags, etc.).
   function applyProState() {
     document.body.dataset.pro = isPro() ? "on" : "off";
-    if (typeof syncProControls === "function") syncProControls(); // keep the Pro row in step
+    if (typeof syncProControls === "function") syncProControls(); // keep the Pro rows in step
+    if (typeof renderTemplatePick === "function") renderTemplatePick(); // and the template picker
   }
 
   // Run once at boot; caches the entitlement boolean and stamps <body data-pro>.
@@ -206,6 +211,8 @@
   });
   var docs = load(LS.docs, []);
   var clients = load(LS.clients, []);
+  var templates = load(LS.templates, []); // Pro reusable starting points (no client/number/date, no images)
+  if (!Array.isArray(templates)) templates = []; // a garbage value must never break boot
   var doc = null;         // current document
   var savedId = null;     // id in docs[] if this doc has been saved
   var sharedView = false; // viewing a document opened from a share link
@@ -1800,6 +1807,73 @@
     wrap.hidden = false;
   }
 
+  // ---------- reusable templates (B3, Pro) ----------
+  var UPSELL_TEMPLATE = "Save a document as a reusable template and start new ones from it — a Pro feature.";
+  // Capture the current document's reusable parts. Deliberately excludes client,
+  // number and dates (a template is a starting point, not a copy) and stores no
+  // logo or images, so templates stay tiny and quota-safe.
+  function saveAsTemplate() {
+    if (isDemo) { toast("Demo mode — changes aren't saved"); return; }
+    readEditor();
+    var firstDesc = (doc.items.find(function (it) { return it.desc; }) || {}).desc || "";
+    var tpl = {
+      id: "t_" + Date.now(),
+      name: typeLabel(doc.type) + (firstDesc ? " · " + firstDesc : ""),
+      type: doc.type,
+      currency: doc.currency,
+      layout: doc.layout,
+      payment: doc.payment || "",
+      notes: doc.notes || "",
+      items: JSON.parse(JSON.stringify(doc.items || []))
+    };
+    templates.unshift(tpl);
+    if (!save(LS.templates, templates)) { templates.shift(); toast("Storage full — template not saved"); return; }
+    renderTemplatePick();
+    toast("Saved as template");
+  }
+  // Fresh draft seeded from a template: newDoc() supplies a new auto number, today's
+  // dates and a blank client (exactly like a normal New); the template only fills in
+  // items, terms, notes, layout and currency.
+  function newFromTemplate(id) {
+    var tpl = templates.find(function (t) { return t.id === id; });
+    if (!tpl) return;
+    keepCurrentIfMeaningful();
+    doc = newDoc(tpl.type);
+    if (tpl.currency) doc.currency = tpl.currency;
+    if (tpl.layout) doc.layout = tpl.layout;
+    doc.payment = tpl.payment || "";
+    doc.notes = tpl.notes || "";
+    if (tpl.items && tpl.items.length) doc.items = JSON.parse(JSON.stringify(tpl.items));
+    savedId = null;
+    fillEditor();
+    render();
+    persistDraft();
+    hideWelcome();
+    toast("New " + doc.type + " from template");
+  }
+  // Home-screen template picker. Free users always see it as a locked, tagged teaser
+  // (click → upsell); Pro users see it only when they have templates to pick from.
+  function renderTemplatePick() {
+    var wrap = $("welcome-template-wrap");
+    var sel = $("welcome-template-new");
+    if (!wrap || !sel) return;
+    var pro = isPro();
+    if (pro && !templates.length) { wrap.hidden = true; return; }
+    wrap.hidden = false;
+    sel.textContent = "";
+    var def = document.createElement("option");
+    def.value = ""; def.textContent = "New from a template…";
+    sel.appendChild(def);
+    if (pro) {
+      templates.forEach(function (t) {
+        var o = document.createElement("option");
+        o.value = t.id; o.textContent = t.name;
+        sel.appendChild(o);
+      });
+    }
+    lockProBox(wrap, "New from template — Pro feature"); // inert + tagged while Free
+  }
+
   function showWelcome(force) {
     if (isDemo || sharedView) return;
     var hasDraftContent = doc && hasContent(doc);
@@ -1862,6 +1936,7 @@
     $("welcome-recent-wrap").hidden = docs.length === 0;
     $("welcome-reports-btn").hidden = docs.length === 0;
     renderWelcomeClientNew();
+    renderTemplatePick();
 
     $("welcome").hidden = false;
   }
@@ -2046,6 +2121,24 @@
     var name = this.value;
     this.value = "";
     if (name) newFromClient(name);
+  });
+
+  // Templates (B3): save from the editor foot, start from the home picker. Gated.
+  $("btn-save-template").addEventListener("click", guardPro(UPSELL_TEMPLATE, saveAsTemplate));
+  $("welcome-template-new").addEventListener("change", function () {
+    if (!isPro()) return; // locked select can't normally fire, but guard anyway
+    var id = this.value;
+    this.value = "";
+    if (id) newFromTemplate(id);
+  });
+  $("welcome-template-wrap").addEventListener("click", function (e) {
+    if (isPro()) return;
+    e.preventDefault();
+    openUpsell(UPSELL_TEMPLATE);
+  });
+  $("welcome-template-wrap").addEventListener("keydown", function (e) {
+    if (isPro()) return;
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openUpsell(UPSELL_TEMPLATE); }
   });
 
   // first-visit: save the user's name, then re-render the home screen as a returning user

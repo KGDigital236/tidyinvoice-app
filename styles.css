@@ -947,6 +947,12 @@ body[data-ui="dark"] .wr-pill.paid { background: #1e2c24; color: #8cc9a6; }
 .wa-bulk.is-locked .pro-tag { opacity: 1; }
 .wa-bulk.is-locked:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
 
+/* Home "From a template" picker (B3). Locked (Free): the select is inert + dimmed,
+   the whole control is one upsell target, and the Pro tag stays legible. */
+.welcome-template-pick.is-locked { cursor: pointer; }
+.welcome-template-pick.is-locked select { pointer-events: none; opacity: .55; }
+.welcome-template-pick.is-locked:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+
 /* ============ Modal (unsaved-changes dialog) ============ */
 .modal-backdrop[hidden], .modal[hidden] { display: none; }
 .modal-backdrop {
