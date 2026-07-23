@@ -60,12 +60,35 @@ service worker just won't register on `file://`.)
       "VAT invoice requirements Ireland/UK" — link them to the app
 - [ ] Share with existing KG Digital clients
 
+## Pro tier
+
+Built and **shippable**. Free tier is unchanged and stays byte-for-byte as capable
+as before — Pro only adds a power layer over saved documents.
+
+- **Pro features** (all client-side, all gated): library search/filter/sort, bulk
+  actions (multi-select PDF/CSV/status/delete), and reusable templates.
+- **Entitlement**: a signed licence in `tidyinvoice_license` is verified **offline**
+  with Web Crypto Ed25519 against the bundled `LICENSE_PUBLIC_KEY` in `app.js` — no
+  backend, no network. Fails safe to Free on anything missing/tampered/expired.
+  `<body data-pro>` is the single gate for all Pro UI. `?demo` unlocks Pro visually
+  but writes nothing.
+- **Checkout**: `PRO_CHECKOUT_URL` in `app.js` is set to the live Stripe Payment Link
+  (`https://buy.stripe.com/…`). The upsell modal's "Unlock Pro" opens it in a new tab.
+- **Issuing licences**: `node tools/sign-license.mjs sign --email <e> --tier pro
+  [--exp <ISO|none>]` mints a key (`--exp none` = one-time unlock; a date = expiry).
+  The signer holds the **private** key in `tools/license-private.key` — **gitignored,
+  local only, never committed**. Back it up: losing it means no new licences can be
+  signed; leaking it lets anyone mint Pro. Rotating it (re-`keygen` + swap the bundled
+  public key) invalidates every previously issued licence.
+
 ## localStorage keys
 
 - `tidyinvoice_settings` — business profile, logo (base64), counters, defaults, theme
 - `tidyinvoice_docs` — saved documents
 - `tidyinvoice_clients` — saved client book
 - `tidyinvoice_draft` — current working document (autosaved)
+- `tidyinvoice_license` — signed Pro licence (Ed25519, verified offline; absent = Free)
+- `tidyinvoice_templates` — Pro reusable templates (no client/number/date, no images)
 
 ## Notes
 

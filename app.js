@@ -77,7 +77,7 @@
   // (tools/sign-license.mjs → tools/license-private.key, gitignored) and must never
   // enter this repo. Rotating it invalidates every previously issued licence.
   var LICENSE_PUBLIC_KEY = "bZPkqGJuWkawoaHXiffFRfADqG3XqfGHcEdfOzatLUM"; // Ed25519 raw public key, base64url
-  var PRO_CHECKOUT_URL = "#"; // Phase 2: Stripe Payment Link
+  var PRO_CHECKOUT_URL = "https://buy.stripe.com/14AaEXfrA6ijfzofau1Nu00"; // Stripe Payment Link
 
   var proState = { pro: false, ready: false, supported: true, exp: null };
 
@@ -1208,11 +1208,7 @@
     if (isPro()) return false;         // never upsell someone who already has Pro
     if (upsellDismissed) return false; // respected their dismiss for this session
     $("upsell-body").textContent = feature || "This is a Pro feature.";
-    var buy = $("upsell-buy");
-    var live = PRO_CHECKOUT_URL && PRO_CHECKOUT_URL !== "#";
-    buy.href = live ? PRO_CHECKOUT_URL : "#";
-    buy.textContent = live ? "Unlock Pro" : "Unlock Pro — coming soon";
-    buy.classList.toggle("is-disabled", !live); // placeholder until Phase 2 sets the URL
+    $("upsell-buy").href = PRO_CHECKOUT_URL; // opens the Stripe checkout in a new tab
     $("upsell-backdrop").hidden = false;
     $("upsell-modal").hidden = false;
     return true;
@@ -1226,9 +1222,8 @@
       openUpsell(feature);
     };
   }
-  $("upsell-buy").addEventListener("click", function (e) {
-    if (this.classList.contains("is-disabled")) { e.preventDefault(); return; } // no live checkout yet
-    dismissUpsell(); // opening checkout counts as handled — don't re-prompt
+  $("upsell-buy").addEventListener("click", function () {
+    dismissUpsell(); // the anchor opens checkout in a new tab; don't re-prompt this session
   });
   $("upsell-key").addEventListener("click", function () {
     dismissUpsell();
