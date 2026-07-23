@@ -1173,6 +1173,52 @@
     licenseMsg("Licence removed — back to the free plan.", "info");
   });
 
+  // ---------- Pro upsell (A3) ----------
+  // One compact, dismissible modal shared by every gated control. After the user
+  // dismisses it once, we stay quiet for the rest of the session (no re-prompting).
+  var upsellDismissed = false;
+  function closeUpsell() {
+    $("upsell-modal").hidden = true;
+    $("upsell-backdrop").hidden = true;
+  }
+  function dismissUpsell() { upsellDismissed = true; closeUpsell(); }
+  function upsellOpen() { return !$("upsell-modal").hidden; }
+  // Show the upsell for a gated feature. `feature` is a single plain-English line.
+  // Returns true if it opened, false if suppressed (Pro, or already dismissed).
+  function openUpsell(feature) {
+    if (isPro()) return false;         // never upsell someone who already has Pro
+    if (upsellDismissed) return false; // respected their dismiss for this session
+    $("upsell-body").textContent = feature || "This is a Pro feature.";
+    var buy = $("upsell-buy");
+    var live = PRO_CHECKOUT_URL && PRO_CHECKOUT_URL !== "#";
+    buy.href = live ? PRO_CHECKOUT_URL : "#";
+    buy.textContent = live ? "Unlock Pro" : "Unlock Pro — coming soon";
+    buy.classList.toggle("is-disabled", !live); // placeholder until Phase 2 sets the URL
+    $("upsell-backdrop").hidden = false;
+    $("upsell-modal").hidden = false;
+    return true;
+  }
+  // Gate a click: if Free, show the upsell and swallow the action; if Pro, run it.
+  // Use as the click handler for any Pro-only control.
+  function guardPro(feature, fn) {
+    return function (e) {
+      if (isPro()) return fn.call(this, e);
+      if (e) { e.preventDefault(); }
+      openUpsell(feature);
+    };
+  }
+  $("upsell-buy").addEventListener("click", function (e) {
+    if (this.classList.contains("is-disabled")) { e.preventDefault(); return; } // no live checkout yet
+    dismissUpsell(); // opening checkout counts as handled — don't re-prompt
+  });
+  $("upsell-key").addEventListener("click", function () {
+    dismissUpsell();
+    openHistory();
+    var f = $("f-license");
+    if (f) { try { f.focus(); } catch (e) {} }
+  });
+  $("upsell-backdrop").addEventListener("click", dismissUpsell);
+
   // ---------- preview scaling ----------
   function scalePreview() {
     // keep the mobile tab bar stuck just below the (wrapping) top bar
@@ -1455,6 +1501,7 @@
   $("drawer-backdrop").addEventListener("click", closeHistory);
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
+      if (upsellOpen()) { dismissUpsell(); return; } // close the upsell only
       if (confirmModalOpen()) { closeConfirm(); return; } // cancel the dialog only
       closeHistory();
       if (!$("welcome").hidden && !$("welcome-all").hidden) { welcomeShowView("home"); }
