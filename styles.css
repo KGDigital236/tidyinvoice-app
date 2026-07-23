@@ -926,6 +926,27 @@ body[data-ui="dark"] .wr-pill.paid { background: #1e2c24; color: #8cc9a6; }
 .wa-pro-controls.is-locked .wa-sort { pointer-events: none; opacity: .5; }
 .wa-pro-controls.is-locked:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
 
+/* Bulk actions row (B2). */
+.wa-bulk { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }
+.wa-selectall { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
+.wa-selcount { font-size: 12.5px; color: var(--ink-soft); }
+.wa-bulk-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.wa-bulk-actions[hidden] { display: none; }
+.wa-bulk-status {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 8px;
+  background: var(--field-bg);
+  color: var(--ink);
+  font-size: 12px;
+}
+.wr-check { flex: 0 0 auto; width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+/* Locked (Free): row inert + dimmed, one upsell target; keep the Pro tag legible. */
+.wa-bulk.is-locked { cursor: pointer; }
+.wa-bulk.is-locked > * { pointer-events: none; opacity: .55; }
+.wa-bulk.is-locked .pro-tag { opacity: 1; }
+.wa-bulk.is-locked:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+
 /* ============ Modal (unsaved-changes dialog) ============ */
 .modal-backdrop[hidden], .modal[hidden] { display: none; }
 .modal-backdrop {
@@ -1306,6 +1327,9 @@ body[data-ui="dark"] .overflow-hint { background: #2e2716; color: #e6c877; borde
   font-weight: 700;
 }
 
+/* Bulk-PDF print stage: screen-hidden; shown only while printing a bulk job. */
+#bulk-print { display: none; }
+
 /* ============ PRINT ============ */
 @media print {
   @page { size: A4; margin: 0; }
@@ -1334,4 +1358,20 @@ body[data-ui="dark"] .overflow-hint { background: #2e2716; color: #e6c877; borde
   /* Band layout: re-bleed the header to the A4 page edge (print padding is 15mm) */
   .sheet[data-layout="band"] { padding-top: 0; }
   .sheet[data-layout="band"] .s-head { margin: 0 -15mm; padding: 12mm 15mm 8mm; }
+
+  /* Bulk PDF: hide the live single sheet, print the staged clones — one A4 per doc. */
+  body.bulk-printing .workspace { display: none !important; }
+  body.bulk-printing #bulk-print { display: block; }
+  #bulk-print .sheet {
+    width: 210mm;
+    min-height: 285mm;
+    box-shadow: none !important; /* beats the dark-mode shadow's specificity, same as single */
+    padding: 15mm 15mm 10mm;
+    margin: 0 auto;
+    page-break-before: always;
+    break-before: page;
+  }
+  #bulk-print .sheet:first-child { page-break-before: auto; break-before: auto; } /* no leading blank page */
+  #bulk-print .sheet[data-layout="band"] { padding-top: 0; }
+  #bulk-print .sheet[data-layout="band"] .s-head { margin: 0 -15mm; padding: 12mm 15mm 8mm; }
 }

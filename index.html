@@ -165,6 +165,24 @@
         </label>
       </div>
 
+      <!-- Pro layer: bulk multi-select actions. Inert until unlocked. -->
+      <div class="wa-bulk" id="wa-bulk">
+        <label class="wa-selectall"><input type="checkbox" id="wa-select-all"> Select all</label>
+        <span class="pro-tag">Pro</span>
+        <span class="wa-selcount" id="wa-selcount" hidden>0 selected</span>
+        <div class="wa-bulk-actions" id="wa-bulk-actions" hidden>
+          <button type="button" class="btn tiny ghost" id="wa-bulk-pdf">PDF</button>
+          <button type="button" class="btn tiny ghost" id="wa-bulk-csv">CSV</button>
+          <select id="wa-bulk-status" class="wa-bulk-status" aria-label="Set status for selected">
+            <option value="">Set status…</option>
+            <option value="draft">Mark draft</option>
+            <option value="sent">Mark sent</option>
+            <option value="paid">Mark paid</option>
+          </select>
+          <button type="button" class="btn tiny ghost danger" id="wa-bulk-delete">Delete</button>
+        </div>
+      </div>
+
       <ul id="welcome-all-list" class="welcome-all-list"></ul>
       <p class="wa-empty" id="wa-empty" hidden>No documents match.</p>
     </div>
@@ -593,6 +611,9 @@
     <a class="btn primary" id="upsell-buy" href="#" target="_blank" rel="noopener">Unlock Pro</a>
   </div>
 </div>
+
+<!-- Bulk-PDF print stage: one .sheet per selected doc, shown only while printing a bulk job. -->
+<div id="bulk-print" aria-hidden="true"></div>
 
 <!-- ============ LANDING / SEO CONTENT ============ -->
 <section class="landing no-print">

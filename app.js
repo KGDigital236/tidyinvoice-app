@@ -1033,24 +1033,32 @@
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
   });
 
-  $("btn-csv").addEventListener("click", function () {
-    if (docs.length === 0) { alert("Nothing saved yet — save a document first."); return; }
+  // Serialise a list of docs to the CSV shape used by the backup export. Shared by
+  // the full "Export CSV" button and Pro bulk CSV (which scopes it to a selection).
+  function docsToCSV(list) {
     function esc(v) { return '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; }
     var rows = [["Number", "Type", "Status", "Date", "Due", "Client", "Currency", "Total"].join(",")];
-    docs.forEach(function (d) {
+    list.forEach(function (d) {
       rows.push([
         esc(d.number), esc(d.type), esc(d.status), esc(d.date), esc(d.due || ""),
         esc(d.client && d.client.name), esc(d.currency), (d.totalSnapshot || 0).toFixed(2)
       ].join(","));
     });
-    var blob = new Blob(["﻿" + rows.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    return "﻿" + rows.join("\r\n");
+  }
+  function downloadCSV(list, filename) {
+    var blob = new Blob([docsToCSV(list)], { type: "text/csv;charset=utf-8" });
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "tidyinvoice-documents-" + todayISO(0) + ".csv";
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+  }
+  $("btn-csv").addEventListener("click", function () {
+    if (docs.length === 0) { alert("Nothing saved yet — save a document first."); return; }
+    downloadCSV(docs, "tidyinvoice-documents-" + todayISO(0) + ".csv");
   });
 
   $("btn-import").addEventListener("click", function () { $("f-import").click(); });
@@ -1671,6 +1679,21 @@
     var li = document.createElement("li");
     li.className = "welcome-recent-item";
 
+    // Pro bulk-select checkbox (all-documents page only). Free rows have none, so
+    // single-doc open/duplicate/PDF/delete are exactly as before.
+    if (opts.selectable) {
+      var check = document.createElement("input");
+      check.type = "checkbox";
+      check.className = "wr-check";
+      check.checked = !!waSelected[d.id];
+      check.setAttribute("aria-label", "Select " + d.number);
+      check.addEventListener("change", function () {
+        if (check.checked) waSelected[d.id] = true; else delete waSelected[d.id];
+        updateBulkUI();
+      });
+      li.appendChild(check);
+    }
+
     var open = document.createElement("button");
     open.type = "button";
     open.className = "wr-open";
@@ -1858,9 +1881,11 @@
     if (card) { card.style.animation = "none"; void card.offsetWidth; card.style.animation = ""; }
   }
 
-  var waFilter = "all"; // status filter (free)
-  var waType = "all";   // type filter (Pro)
-  var waSort = "date";  // sort key (Pro)
+  var waFilter = "all";   // status filter (free)
+  var waType = "all";     // type filter (Pro)
+  var waSort = "date";    // sort key (Pro)
+  var waSelected = {};    // id -> true, bulk selection (Pro); always a subset of the current view
+  var waShownIds = [];    // ids currently rendered, in view order (for select-all)
 
   // Sort a copy of the docs (never mutates the source array). Pro-only.
   function sortDocs(arr, key) {
@@ -1879,8 +1904,7 @@
   // Lock/unlock the Pro controls row to match entitlement. When locked the
   // children are inert (CSS pointer-events) and out of the tab order; the row
   // itself becomes a single focusable target that opens the upsell.
-  function syncProControls() {
-    var box = $("wa-pro-controls");
+  function lockProBox(box, label) {
     if (!box) return;
     var pro = isPro();
     box.classList.toggle("is-locked", !pro);
@@ -1888,12 +1912,15 @@
       el.tabIndex = pro ? 0 : -1;
     });
     if (pro) {
-      box.removeAttribute("role"); box.removeAttribute("tabindex");
-      box.removeAttribute("aria-label");
+      box.removeAttribute("role"); box.removeAttribute("tabindex"); box.removeAttribute("aria-label");
     } else {
       box.setAttribute("role", "button"); box.setAttribute("tabindex", "0");
-      box.setAttribute("aria-label", "Search notes, filter and sort — Pro feature");
+      box.setAttribute("aria-label", label);
     }
+  }
+  function syncProControls() {
+    lockProBox($("wa-pro-controls"), "Search notes, filter and sort — Pro feature");
+    lockProBox($("wa-bulk"), "Select multiple documents for bulk actions — Pro feature");
   }
 
   // Pure view over docs — never mutates. Free users get today's exact behaviour
@@ -1919,10 +1946,17 @@
       return hit;
     });
     if (pro) shown = sortDocs(shown, waSort);
+    // Keep the bulk selection a strict subset of what's on screen, so "select all"
+    // and every bulk action only ever touch the currently-filtered view.
+    var shownSet = {};
+    shown.forEach(function (d) { shownSet[d.id] = true; });
+    Object.keys(waSelected).forEach(function (id) { if (!shownSet[id]) delete waSelected[id]; });
+    waShownIds = shown.map(function (d) { return d.id; });
     $("wa-empty").hidden = shown.length > 0;
     shown.forEach(function (d) {
-      list.appendChild(buildDocRow(d, { showDate: true, onDelete: renderWelcomeAll }));
+      list.appendChild(buildDocRow(d, { showDate: true, selectable: pro, onDelete: renderWelcomeAll }));
     });
+    updateBulkUI();
   }
 
   // ----- welcome: read-only reports dashboard -----
@@ -2027,6 +2061,7 @@
   // Reset every filter (free + Pro) to its default so "View all" always opens clean.
   function resetWaControls() {
     waFilter = "all"; waType = "all"; waSort = "date";
+    waSelected = {};
     $("wa-search").value = "";
     $("wa-date-from").value = ""; $("wa-date-to").value = "";
     $("wa-sort").value = "date";
@@ -2082,6 +2117,125 @@
   $("wa-pro-controls").addEventListener("keydown", function (e) {
     if (isPro()) return;
     if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openUpsell(UPSELL_LIBRARY); }
+  });
+
+  // ----- Bulk actions (B2): multi-select PDF / CSV / status / delete. Pro-only. -----
+  var UPSELL_BULK = "Select several documents and export, print or update them together — a Pro feature.";
+  function selectedIds() {
+    // Preserve the on-screen order so bulk PDF paginates the way the list reads.
+    return waShownIds.filter(function (id) { return waSelected[id]; });
+  }
+  function updateBulkUI() {
+    var count = selectedIds().length;
+    var sc = $("wa-selcount");
+    if (sc) { sc.hidden = count === 0; sc.textContent = count + " selected"; }
+    var actions = $("wa-bulk-actions");
+    if (actions) actions.hidden = count === 0;
+    var all = $("wa-select-all");
+    if (all) {
+      all.checked = count > 0 && count === waShownIds.length;
+      all.indeterminate = count > 0 && count < waShownIds.length;
+    }
+  }
+  // Accent/ink for a doc's theme, mirroring applyTheme() but returned as values so
+  // each cloned bulk sheet can carry its own colours (a shared :root var can't).
+  function themeVars(d) {
+    if (d.theme === "custom" && d.customAccent) return { accent: d.customAccent, ink: darken(d.customAccent, 0.22) };
+    var t = THEMES[d.theme] || THEMES.forest;
+    return { accent: t.accent, ink: t.ink };
+  }
+  // Render each selected doc into its own .sheet clone in #bulk-print, then print
+  // the lot as one job — one A4 per doc via CSS break-before. Reuses render() and the
+  // existing one-page print rules; no PDF library. Never mutates docs.
+  function bulkPrintDocs(ids) {
+    if (!ids.length) return;
+    var stage = $("bulk-print");
+    stage.textContent = "";
+    var restore = doc; // preserve the live editor document
+    ids.forEach(function (id) {
+      var d = docs.find(function (x) { return x.id === id; });
+      if (!d) return;
+      doc = JSON.parse(JSON.stringify(d)); // render() reads the global `doc`
+      render();
+      var clone = $("sheet").cloneNode(true);
+      clone.removeAttribute("id");
+      clone.querySelectorAll("[id]").forEach(function (el) { el.removeAttribute("id"); }); // no duplicate ids
+      var v = themeVars(doc);
+      clone.style.setProperty("--accent", v.accent);
+      clone.style.setProperty("--accent-ink", v.ink);
+      stage.appendChild(clone);
+    });
+    doc = restore; render(); // put the editor's own sheet back
+    document.body.classList.add("bulk-printing");
+    printPDF();
+  }
+  function afterBulkPrint() {
+    document.body.classList.remove("bulk-printing");
+    var stage = $("bulk-print");
+    if (stage) stage.textContent = "";
+  }
+  window.addEventListener("afterprint", afterBulkPrint);
+
+  function bulkCSV(ids) {
+    if (!ids.length) return;
+    var pick = {};
+    ids.forEach(function (id) { pick[id] = true; });
+    var sel = docs.filter(function (d) { return pick[d.id]; }); // store order, stable
+    downloadCSV(sel, "tidyinvoice-selected-" + todayISO(0) + ".csv");
+  }
+  // One atomic write for the whole batch — no partial saves if something's off.
+  function bulkStatus(status, ids) {
+    if (!status || !ids.length) return;
+    if (isDemo) { toast("Demo mode — changes aren't saved"); return; }
+    var pick = {};
+    ids.forEach(function (id) { pick[id] = true; });
+    var n = 0;
+    docs.forEach(function (d) {
+      if (pick[d.id]) { d.status = status; n++; if (savedId === d.id) doc.status = status; }
+    });
+    save(LS.docs, docs);
+    renderHistory();
+    renderWelcomeAll();
+    toast(n + " marked " + status);
+  }
+  function bulkDelete(ids) {
+    if (!ids.length) return;
+    if (isDemo) { toast("Demo mode — changes aren't saved"); return; }
+    if (!confirm("Delete " + ids.length + " document" + (ids.length > 1 ? "s" : "") + "? This can't be undone.")) return;
+    var pick = {};
+    ids.forEach(function (id) { pick[id] = true; });
+    docs = docs.filter(function (d) { return !pick[d.id]; }); // rebuild once, then a single save
+    if (savedId && pick[savedId]) savedId = null;
+    save(LS.docs, docs);
+    waSelected = {};
+    renderHistory();
+    renderWelcomeAll();
+    toast(ids.length + " deleted");
+  }
+
+  $("wa-select-all").addEventListener("change", function () {
+    if (!isPro()) return;
+    if (this.checked) waShownIds.forEach(function (id) { waSelected[id] = true; });
+    else waSelected = {};
+    renderWelcomeAll(); // rebuild rows with the new checked state
+  });
+  $("wa-bulk-pdf").addEventListener("click", function () { if (isPro()) bulkPrintDocs(selectedIds()); });
+  $("wa-bulk-csv").addEventListener("click", function () { if (isPro()) bulkCSV(selectedIds()); });
+  $("wa-bulk-status").addEventListener("change", function () {
+    if (!isPro()) return;
+    var v = this.value; this.value = "";
+    if (v) bulkStatus(v, selectedIds());
+  });
+  $("wa-bulk-delete").addEventListener("click", function () { if (isPro()) bulkDelete(selectedIds()); });
+  // While locked (Free), a click or Enter anywhere in the bulk row opens the upsell.
+  $("wa-bulk").addEventListener("click", function (e) {
+    if (isPro()) return;
+    e.preventDefault();
+    openUpsell(UPSELL_BULK);
+  });
+  $("wa-bulk").addEventListener("keydown", function (e) {
+    if (isPro()) return;
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openUpsell(UPSELL_BULK); }
   });
 
   $("welcome-draft").addEventListener("click", hideWelcome);
