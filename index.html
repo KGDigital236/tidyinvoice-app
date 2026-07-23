@@ -141,6 +141,30 @@
         </div>
       </div>
 
+      <!-- Pro layer: notes-search, type + date filters, sort. Inert until unlocked. -->
+      <div class="wa-pro-controls" id="wa-pro-controls">
+        <div class="wa-pro-head">Refine <span class="pro-tag">Pro</span></div>
+        <div class="wa-filters" id="wa-type-filters" role="group" aria-label="Filter by type">
+          <button type="button" data-wa-type="all" class="is-on">All types</button>
+          <button type="button" data-wa-type="invoice">Invoices</button>
+          <button type="button" data-wa-type="quote">Quotes</button>
+          <button type="button" data-wa-type="receipt">Receipts</button>
+        </div>
+        <div class="wa-daterange">
+          <input type="date" id="wa-date-from" aria-label="From date">
+          <span class="wa-daterange-sep">–</span>
+          <input type="date" id="wa-date-to" aria-label="To date">
+        </div>
+        <label class="wa-sort">Sort
+          <select id="wa-sort" aria-label="Sort documents">
+            <option value="date">Newest first</option>
+            <option value="number">Number</option>
+            <option value="total">Total (high–low)</option>
+            <option value="client">Client (A–Z)</option>
+          </select>
+        </label>
+      </div>
+
       <ul id="welcome-all-list" class="welcome-all-list"></ul>
       <p class="wa-empty" id="wa-empty" hidden>No documents match.</p>
     </div>

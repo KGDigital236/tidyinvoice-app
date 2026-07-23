@@ -898,6 +898,34 @@ body[data-ui="dark"] .wr-pill.paid { background: #1e2c24; color: #8cc9a6; }
 }
 .wa-empty { color: var(--ink-soft); font-size: 13.5px; text-align: center; padding: 20px 0; }
 
+/* Pro layer on the all-documents page (B1): type + date filters, sort. */
+.wa-pro-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: -4px 0 14px;
+}
+.wa-pro-head { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
+.wa-daterange { display: flex; align-items: center; gap: 6px; }
+.wa-daterange input[type="date"],
+.wa-sort select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: var(--field-bg);
+  color: var(--ink);
+  font-size: 12.5px;
+}
+.wa-daterange-sep { color: var(--ink-soft); }
+.wa-sort { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
+/* Locked (Free): controls inert and dimmed; the whole row is one upsell target. */
+.wa-pro-controls.is-locked { cursor: pointer; }
+.wa-pro-controls.is-locked #wa-type-filters,
+.wa-pro-controls.is-locked .wa-daterange,
+.wa-pro-controls.is-locked .wa-sort { pointer-events: none; opacity: .5; }
+.wa-pro-controls.is-locked:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+
 /* ============ Modal (unsaved-changes dialog) ============ */
 .modal-backdrop[hidden], .modal[hidden] { display: none; }
 .modal-backdrop {

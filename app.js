@@ -119,7 +119,10 @@
   }
 
   // data-pro on <body> is the single source of truth for CSS/JS gating (Pro tags, etc.).
-  function applyProState() { document.body.dataset.pro = isPro() ? "on" : "off"; }
+  function applyProState() {
+    document.body.dataset.pro = isPro() ? "on" : "off";
+    if (typeof syncProControls === "function") syncProControls(); // keep the Pro row in step
+  }
 
   // Run once at boot; caches the entitlement boolean and stamps <body data-pro>.
   function initEntitlement() {
@@ -1855,17 +1858,67 @@
     if (card) { card.style.animation = "none"; void card.offsetWidth; card.style.animation = ""; }
   }
 
-  var waFilter = "all";
+  var waFilter = "all"; // status filter (free)
+  var waType = "all";   // type filter (Pro)
+  var waSort = "date";  // sort key (Pro)
+
+  // Sort a copy of the docs (never mutates the source array). Pro-only.
+  function sortDocs(arr, key) {
+    var out = arr.slice();
+    out.sort(function (x, y) {
+      switch (key) {
+        case "number": return (x.number || "").localeCompare(y.number || "", undefined, { numeric: true });
+        case "total":  return (y.totalSnapshot || 0) - (x.totalSnapshot || 0); // high → low
+        case "client": return (x.client.name || "").localeCompare(y.client.name || "");
+        default:       return (y.date || "").localeCompare(x.date || ""); // newest first
+      }
+    });
+    return out;
+  }
+
+  // Lock/unlock the Pro controls row to match entitlement. When locked the
+  // children are inert (CSS pointer-events) and out of the tab order; the row
+  // itself becomes a single focusable target that opens the upsell.
+  function syncProControls() {
+    var box = $("wa-pro-controls");
+    if (!box) return;
+    var pro = isPro();
+    box.classList.toggle("is-locked", !pro);
+    box.querySelectorAll("button, select, input").forEach(function (el) {
+      el.tabIndex = pro ? 0 : -1;
+    });
+    if (pro) {
+      box.removeAttribute("role"); box.removeAttribute("tabindex");
+      box.removeAttribute("aria-label");
+    } else {
+      box.setAttribute("role", "button"); box.setAttribute("tabindex", "0");
+      box.setAttribute("aria-label", "Search notes, filter and sort — Pro feature");
+    }
+  }
+
+  // Pure view over docs — never mutates. Free users get today's exact behaviour
+  // (search number/client + status). Pro adds notes-search, type + date filters,
+  // and sort; those inputs are ignored while Free so nothing leaks through.
   function renderWelcomeAll() {
+    syncProControls();
+    var pro = isPro();
     var q = $("wa-search").value.trim().toLowerCase();
+    var from = pro ? $("wa-date-from").value : "";
+    var to = pro ? $("wa-date-to").value : "";
     var list = $("welcome-all-list");
     list.textContent = "";
     var shown = docs.filter(function (d) {
-      if (waFilter !== "all" && d.status !== waFilter) return false;
+      if (waFilter !== "all" && d.status !== waFilter) return false;          // status (free)
+      if (pro && waType !== "all" && d.type !== waType) return false;          // type (Pro)
+      if (pro && from && (d.date || "") < from) return false;                 // date range (Pro)
+      if (pro && to && (d.date || "") > to) return false;
       if (!q) return true;
-      return (d.number || "").toLowerCase().indexOf(q) > -1 ||
-             (d.client.name || "").toLowerCase().indexOf(q) > -1;
+      var hit = (d.number || "").toLowerCase().indexOf(q) > -1 ||
+                (d.client.name || "").toLowerCase().indexOf(q) > -1;
+      if (!hit && pro) hit = (d.notes || "").toLowerCase().indexOf(q) > -1;    // notes (Pro)
+      return hit;
     });
+    if (pro) shown = sortDocs(shown, waSort);
     $("wa-empty").hidden = shown.length > 0;
     shown.forEach(function (d) {
       list.appendChild(buildDocRow(d, { showDate: true, onDelete: renderWelcomeAll }));
@@ -1971,12 +2024,21 @@
     showWelcome(true);
   });
 
-  $("welcome-viewall").addEventListener("click", function () {
-    waFilter = "all";
+  // Reset every filter (free + Pro) to its default so "View all" always opens clean.
+  function resetWaControls() {
+    waFilter = "all"; waType = "all"; waSort = "date";
     $("wa-search").value = "";
+    $("wa-date-from").value = ""; $("wa-date-to").value = "";
+    $("wa-sort").value = "date";
     document.querySelectorAll("#wa-filters button").forEach(function (b) {
       b.classList.toggle("is-on", b.dataset.waFilter === "all");
     });
+    document.querySelectorAll("#wa-type-filters button").forEach(function (b) {
+      b.classList.toggle("is-on", b.dataset.waType === "all");
+    });
+  }
+  $("welcome-viewall").addEventListener("click", function () {
+    resetWaControls();
     renderWelcomeAll();
     welcomeShowView("all");
   });
@@ -1990,6 +2052,36 @@
       });
       renderWelcomeAll();
     });
+  });
+
+  // ----- Pro controls (B1): type + date filters, sort. Inert until unlocked. -----
+  var UPSELL_LIBRARY = "Search your notes, filter by type or date, and sort your whole library — a Pro feature.";
+  document.querySelectorAll("#wa-type-filters button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (!isPro()) return; // locked: the row handler shows the upsell instead
+      waType = b.dataset.waType;
+      document.querySelectorAll("#wa-type-filters button").forEach(function (x) {
+        x.classList.toggle("is-on", x === b);
+      });
+      renderWelcomeAll();
+    });
+  });
+  $("wa-date-from").addEventListener("change", function () { if (isPro()) renderWelcomeAll(); });
+  $("wa-date-to").addEventListener("change", function () { if (isPro()) renderWelcomeAll(); });
+  $("wa-sort").addEventListener("change", function () {
+    if (!isPro()) return;
+    waSort = this.value;
+    renderWelcomeAll();
+  });
+  // While locked, a click or Enter anywhere in the row opens the single upsell.
+  $("wa-pro-controls").addEventListener("click", function (e) {
+    if (isPro()) return;
+    e.preventDefault();
+    openUpsell(UPSELL_LIBRARY);
+  });
+  $("wa-pro-controls").addEventListener("keydown", function (e) {
+    if (isPro()) return;
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openUpsell(UPSELL_LIBRARY); }
   });
 
   $("welcome-draft").addEventListener("click", hideWelcome);
