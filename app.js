@@ -10,7 +10,8 @@
     settings: "tidyinvoice_settings",
     docs: "tidyinvoice_docs",
     clients: "tidyinvoice_clients",
-    draft: "tidyinvoice_draft"
+    draft: "tidyinvoice_draft",
+    license: "tidyinvoice_license"
   };
 
   var THEMES = {
@@ -54,6 +55,88 @@
     quotaWarned = true;
     alert("Couldn't save — browser storage is full. Try a smaller logo image.");
   }
+
+  // ---------- entitlement (Pro licence) ----------
+  // Offline check: a signed key in localStorage is verified against the bundled
+  // Ed25519 public key. No backend, no network. Fails safe to FREE — missing,
+  // malformed, tampered, expired, or unverifiable => not Pro, and the app runs
+  // exactly as the free tier does. A bad key never throws or blocks a free action.
+  // ?demo unlocks Pro visually but writes nothing (save() already guards on isDemo).
+  //
+  // Licence string = base64url(payloadJSON) + "." + base64url(64-byte signature),
+  // the signature being over the UTF-8 bytes of the payload segment. Payload is
+  // { tier:"pro", exp } — exp = unix seconds, or null/absent = no expiry (pay-once).
+  // A yearly key just carries a future exp; isPro() enforces it either way, so the
+  // pay-once vs subscription choice is a Phase-2 issuance decision, not a code one.
+  //
+  // DEV KEY — swap this public key for the production one at Phase 2. The matching
+  // private key lives only in the licence signer and must never enter this repo.
+  var LICENSE_PUBLIC_KEY = "OdjQD_OrOz5fRGgUkktHvPyi5eAiFk_ZD-sYZdj0KKw"; // Ed25519 raw public key, base64url
+  var PRO_CHECKOUT_URL = "#"; // Phase 2: Stripe Payment Link
+
+  var proState = { pro: false, ready: false, supported: true, exp: null };
+
+  // Cached per page load: gated UI reads this synchronously after initEntitlement resolves.
+  function isPro() { return isDemo || proState.pro; }
+
+  function b64urlToBytes(s) {
+    s = String(s).replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) s += "=";
+    var bin = atob(s);
+    var out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  // Verify a licence string. Resolves to { ok, expired, unsupported, payload }.
+  // Never rejects — any failure resolves { ok:false } so the boot path can't break.
+  function verifyLicense(str) {
+    return new Promise(function (resolve) {
+      try {
+        if (!str || typeof str !== "string" || str.indexOf(".") < 0) return resolve({ ok: false });
+        var subtle = window.crypto && window.crypto.subtle;
+        if (!subtle) return resolve({ ok: false, unsupported: true });
+        var parts = str.split(".");
+        if (parts.length !== 2) return resolve({ ok: false });
+        var payloadSeg = parts[0];
+        var sig = b64urlToBytes(parts[1]);
+        var msg = new TextEncoder().encode(payloadSeg);
+        var rawKey = b64urlToBytes(LICENSE_PUBLIC_KEY);
+        subtle.importKey("raw", rawKey, { name: "Ed25519" }, false, ["verify"])
+          .then(function (key) { return subtle.verify({ name: "Ed25519" }, key, sig, msg); })
+          .then(function (valid) {
+            if (!valid) return resolve({ ok: false });
+            var payload;
+            try { payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(payloadSeg))); }
+            catch (e) { return resolve({ ok: false }); }
+            if (!payload || payload.tier !== "pro") return resolve({ ok: false });
+            if (payload.exp != null && Date.now() / 1000 > payload.exp) return resolve({ ok: false, expired: true, payload: payload });
+            resolve({ ok: true, payload: payload });
+          })
+          .catch(function () { resolve({ ok: false, unsupported: true }); }); // Ed25519 not supported by this browser
+      } catch (e) { resolve({ ok: false }); }
+    });
+  }
+
+  // data-pro on <body> is the single source of truth for CSS/JS gating (Pro tags, etc.).
+  function applyProState() { document.body.dataset.pro = isPro() ? "on" : "off"; }
+
+  // Run once at boot; caches the entitlement boolean and stamps <body data-pro>.
+  function initEntitlement() {
+    document.body.dataset.pro = "off"; // default until verification resolves
+    if (isDemo) { proState.pro = true; proState.ready = true; applyProState(); return Promise.resolve(); }
+    var str = null;
+    try { str = localStorage.getItem(LS.license); } catch (e) { str = null; }
+    if (!str) { proState.ready = true; applyProState(); return Promise.resolve(); }
+    return verifyLicense(str).then(function (r) {
+      proState.pro = !!r.ok;
+      proState.supported = !r.unsupported;
+      proState.exp = r.payload ? (r.payload.exp || null) : null;
+      proState.ready = true;
+      applyProState();
+      renderLicense(); // refresh drawer UI if it's already open
+    });
+  }
   function todayISO(offsetDays) {
     var d = new Date();
     if (offsetDays) d.setDate(d.getDate() + offsetDays);
@@ -77,6 +160,10 @@
     var n = parseFloat(v);
     return isFinite(n) ? n : 0;
   }
+  // clamp a line figure to >= 0 for math only — a typed negative qty/price must
+  // not silently corrupt totals (the stored value is left untouched so the user
+  // still sees, and can fix, what they typed)
+  function nonneg(v) { return Math.max(0, num(v)); }
   function money(n, currency) {
     try {
       return new Intl.NumberFormat(undefined, { style: "currency", currency: currency }).format(n);
@@ -349,7 +436,7 @@
   function calcTotals(d) {
     d = d || doc;
     var subtotal = 0;
-    d.items.forEach(function (it) { subtotal += num(it.qty) * num(it.price); });
+    d.items.forEach(function (it) { subtotal += nonneg(it.qty) * nonneg(it.price); });
 
     var discountAmt = 0;
     if (d.discount > 0) {
@@ -361,7 +448,7 @@
 
     var vatByRate = {};
     d.items.forEach(function (it) {
-      var net = num(it.qty) * num(it.price) * factor;
+      var net = nonneg(it.qty) * nonneg(it.price) * factor;
       var rate = num(it.vat);
       if (rate > 0 && net > 0) {
         vatByRate[rate] = (vatByRate[rate] || 0) + net * rate / 100;
@@ -375,6 +462,12 @@
     return { subtotal: subtotal, discountAmt: discountAmt, vatByRate: vatByRate, vatTotal: vatTotal, total: total, paid: paid, balance: total - paid };
   }
 
+  // Amount still owed on a SAVED invoice: snapshot total minus any deposit
+  // recorded. Uses totalSnapshot (the figure saved at issue time), not live items.
+  function balanceDueOf(d) {
+    return Math.max(0, (d.totalSnapshot || 0) - nonneg(d.amountPaid));
+  }
+
   // ---------- preview render ----------
   function render() {
     var meta = TYPE_META[doc.type];
@@ -383,6 +476,7 @@
     var biz = doc._sharedBiz || settings;
 
     $("sheet").dataset.layout = doc.layout || "classic";
+    $("sheet").lang = LANGS[doc.lang] ? doc.lang : "en";   // sheet language for a11y + PDF (editor UI stays English)
 
     $("s-doctitle").textContent = L.titles[doc.type];
     $("s-numlabel").textContent = L.numLabels[doc.type];
@@ -427,7 +521,7 @@
     doc.items.forEach(function (it) {
       if (!hasReal && !it.desc && !num(it.price)) return; // placeholder handled below
       var tr = document.createElement("tr");
-      var amount = num(it.qty) * num(it.price);
+      var amount = nonneg(it.qty) * nonneg(it.price);
       tr.append(
         cell("c-desc", it.desc || "—"),
         cell("c-qty", String(num(it.qty))),
@@ -996,6 +1090,8 @@
 
   function openHistory() {
     renderHistory();
+    renderLicense();
+    licenseMsg(""); // clear any stale message from a previous open
     $("history-drawer").hidden = false;
     $("drawer-backdrop").hidden = false;
   }
@@ -1003,6 +1099,79 @@
     $("history-drawer").hidden = true;
     $("drawer-backdrop").hidden = true;
   }
+
+  // ---------- licence (Pro) UI ----------
+  function isoFromUnix(sec) {
+    var d = new Date(sec * 1000);
+    var m = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
+    return d.getFullYear() + "-" + m + "-" + day;
+  }
+  function licenseMsg(text, kind) {
+    var el = $("license-msg");
+    if (!el) return;
+    if (!text) { el.hidden = true; el.textContent = ""; return; }
+    el.hidden = false;
+    el.textContent = text;
+    el.dataset.kind = kind || "info";
+  }
+  function renderLicense() {
+    var wrap = $("drawer-license");
+    if (!wrap) return;
+    var stateEl = $("license-state");
+    var buy = $("license-buy");
+    if (buy) buy.hidden = (PRO_CHECKOUT_URL === "#"); // hide the dead link until Phase 2 sets the URL
+    if (buy) buy.href = PRO_CHECKOUT_URL;
+    var pro = isPro();
+    $("license-pro").hidden = !pro || isDemo; // nothing stored to remove in demo
+    $("license-free").hidden = pro;
+    if (pro) {
+      stateEl.dataset.plan = "pro";
+      if (isDemo) stateEl.textContent = "Pro — demo mode";
+      else if (proState.exp) stateEl.textContent = "Pro — active until " + fmtDate(isoFromUnix(proState.exp));
+      else stateEl.textContent = "Pro — active";
+    } else {
+      stateEl.dataset.plan = "free";
+      var hasKey = false;
+      try { hasKey = !!localStorage.getItem(LS.license); } catch (e) {}
+      stateEl.textContent = (hasKey && !proState.supported)
+        ? "Free — this browser can't verify licences"
+        : "Free plan";
+    }
+  }
+  $("btn-license-activate").addEventListener("click", function () {
+    var key = ($("f-license").value || "").trim();
+    if (!key) { licenseMsg("Paste your licence key first.", "err"); return; }
+    if (isDemo) { licenseMsg("Demo mode — activation is disabled.", "err"); return; }
+    licenseMsg("Checking…", "info");
+    verifyLicense(key).then(function (r) {
+      if (!r.ok) {
+        if (r.expired) licenseMsg("That licence has expired.", "err");
+        else if (r.unsupported) licenseMsg("This browser can't verify licences — please update it.", "err");
+        else licenseMsg("That licence key isn't valid.", "err");
+        return; // never store an invalid key
+      }
+      try { localStorage.setItem(LS.license, key); }
+      catch (e) { licenseMsg("Couldn't save the licence — browser storage may be full.", "err"); return; }
+      proState.pro = true;
+      proState.supported = true;
+      proState.exp = r.payload ? (r.payload.exp || null) : null;
+      applyProState();
+      $("f-license").value = "";
+      renderLicense();
+      licenseMsg("Pro activated — thank you!", "ok");
+    });
+  });
+  $("btn-license-remove").addEventListener("click", function () {
+    if (isDemo) return;
+    if (!confirm("Remove this licence and return to the free plan?")) return;
+    try { localStorage.removeItem(LS.license); } catch (e) {}
+    proState.pro = false;
+    proState.exp = null;
+    applyProState();
+    renderLicense();
+    licenseMsg("Licence removed — back to the free plan.", "info");
+  });
 
   // ---------- preview scaling ----------
   function scalePreview() {
@@ -1446,12 +1615,6 @@
     var days = Math.floor(hrs / 24);
     return "edited " + days + (days === 1 ? " day" : " days") + " ago";
   }
-  function sumByCurrency(list) {
-    var by = {};
-    list.forEach(function (d) { by[d.currency] = (by[d.currency] || 0) + (d.totalSnapshot || 0); });
-    var parts = Object.keys(by).map(function (c) { return money(by[c], c); });
-    return parts.length ? parts.join(" + ") : null;
-  }
   // One saved-document row, shared by the welcome home list and the all-documents page.
   function buildDocRow(d, opts) {
     opts = opts || {};
@@ -1586,14 +1749,21 @@
     bizline.textContent = settings.bizName || "";
     bizline.hidden = !settings.bizName;
 
-    // money at a glance
-    var outstanding = sumByCurrency(docs.filter(function (d) { return d.type === "invoice" && d.status === "sent"; }));
-    // "Collected" = paid INVOICES only. Receipts are excluded because a receipt is
-    // usually issued alongside a paid invoice for the same money — counting both
-    // would double the figure. (Same rule in renderReports.)
-    var collected = sumByCurrency(docs.filter(function (d) { return d.type === "invoice" && d.status === "paid"; }));
-    $("wstat-outstanding").textContent = outstanding || money(0, settings.currency);
-    $("wstat-collected").textContent = collected || money(0, settings.currency);
+    // money at a glance — report cash reality (same definitions in renderReports)
+    // Outstanding = balance due on SENT invoices = total - deposit already taken.
+    var outstanding = sumByCur(
+      docs.filter(function (d) { return d.type === "invoice" && d.status === "sent"; }),
+      balanceDueOf
+    );
+    // Collected = cash actually received: deposits on SENT invoices + full total
+    // on PAID invoices. Receipts are excluded because a receipt is usually issued
+    // alongside a paid invoice for the same money — counting both would double it.
+    var collected = sumByCur(
+      docs.filter(function (d) { return d.type === "invoice" && (d.status === "sent" || d.status === "paid"); }),
+      function (d) { return d.status === "paid" ? (d.totalSnapshot || 0) : nonneg(d.amountPaid); }
+    );
+    $("wstat-outstanding").textContent = outstanding;
+    $("wstat-collected").textContent = collected;
     $("wstat-count").textContent = docs.length;
     $("welcome-stats").hidden = docs.length === 0;
     var overdueCount = docs.filter(isOverdue).length;
@@ -1622,7 +1792,11 @@
 
     $("welcome").hidden = false;
   }
-  function hideWelcome() { $("welcome").hidden = true; welcomeShowView("home"); }
+  function hideWelcome() {
+    $("welcome").hidden = true;
+    welcomeShowView("home");
+    window.scrollTo(0, 0); // land at the top of the editor, not wherever the page was scrolled
+  }
 
   // ----- welcome: switch between the home page and the all-documents page -----
   function welcomeShowView(name) {
@@ -1676,9 +1850,13 @@
     // (same rule as the welcome-screen "Collected" stat)
     var paidDocs = docs.filter(function (d) { return d.type === "invoice" && d.status === "paid"; });
 
-    $("rep-outstanding").textContent = sumByCur(outstanding, function (d) { return d.totalSnapshot || 0; });
-    $("rep-overdue").textContent = sumByCur(overdue, function (d) { return d.totalSnapshot || 0; });
-    $("rep-collected").textContent = sumByCur(paidDocs, function (d) { return d.totalSnapshot || 0; });
+    // Cash reality (same definitions as showWelcome):
+    // Outstanding/Overdue = balance due (total - deposit); Collected = deposits on
+    // SENT invoices + full total on PAID invoices.
+    var collectedInvoices = docs.filter(function (d) { return d.type === "invoice" && (d.status === "sent" || d.status === "paid"); });
+    $("rep-outstanding").textContent = sumByCur(outstanding, balanceDueOf);
+    $("rep-overdue").textContent = sumByCur(overdue, balanceDueOf);
+    $("rep-collected").textContent = sumByCur(collectedInvoices, function (d) { return d.status === "paid" ? (d.totalSnapshot || 0) : nonneg(d.amountPaid); });
 
     var ol = $("rep-overdue-list");
     ol.textContent = "";
@@ -1876,6 +2054,7 @@
   }
   applyUITheme();
   enhanceSteppers();
+  initEntitlement(); // offline Pro-licence check; stamps <body data-pro>, fails safe to free
   $("foot-year").textContent = new Date().getFullYear();
   if (isDemo) {
     var note = $("autosave-note");

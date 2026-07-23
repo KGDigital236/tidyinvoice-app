@@ -13,7 +13,10 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="TidyInvoice — Free Invoice, Quote &amp; Receipt Generator">
 <meta name="twitter:description" content="Professional invoices in seconds. VAT-ready. No signup. Data stays in your browser.">
-<!-- Deployed on GitHub Pages. Update these if the site moves to a custom domain. -->
+<!-- SITE ORIGIN: https://kgdigital236.github.io/tidyinvoice-app
+     Appears in: canonical, og:url, og:image, twitter:image (the four tags below)
+     and robots.txt Sitemap. Moving domain = find-replace that exact string
+     across index.html + robots.txt (manifest.json uses relative paths — leave it). -->
 <link rel="canonical" href="https://kgdigital236.github.io/tidyinvoice-app/">
 <meta property="og:url" content="https://kgdigital236.github.io/tidyinvoice-app/">
 <meta property="og:image" content="https://kgdigital236.github.io/tidyinvoice-app/og-image.png">
@@ -24,7 +27,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231e6f50'/%3E%3Cpath d='M9 10h14M9 16h14M9 22h8' stroke='%23f5f2ea' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1e6f50">
-<link rel="stylesheet" href="styles.css?v=28">
+<link rel="stylesheet" href="styles.css?v=29">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -526,6 +529,22 @@
     <button type="button" id="btn-csv" class="btn ghost tiny">CSV for accountant</button>
     <input type="file" id="f-import" accept="application/json,.json" hidden>
   </div>
+  <div class="drawer-license" id="drawer-license">
+    <h3 class="drawer-license-title">TidyInvoice Pro</h3>
+    <p class="drawer-license-state" id="license-state">Free plan</p>
+    <div id="license-free">
+      <p class="drawer-license-blurb">Power tools for heavy users — search &amp; filter your documents, bulk export, and reusable templates. Invoicing itself stays free.</p>
+      <div class="license-entry">
+        <input type="text" id="f-license" placeholder="Paste licence key" autocomplete="off" spellcheck="false">
+        <button type="button" id="btn-license-activate" class="btn tiny primary">Activate</button>
+      </div>
+      <a class="license-buy" id="license-buy" href="#" target="_blank" rel="noopener" hidden>Get a licence →</a>
+    </div>
+    <div id="license-pro" hidden>
+      <button type="button" id="btn-license-remove" class="btn tiny ghost danger">Remove licence</button>
+    </div>
+    <p class="license-msg" id="license-msg" hidden></p>
+  </div>
 </aside>
 
 <!-- ============ UNSAVED-CHANGES DIALOG ============ -->
@@ -571,7 +590,7 @@
     </div>
   </div>
   <footer class="site-foot">
-    <span>© <span id="foot-year"></span> TidyInvoice · A GreenSquare project</span>
+    <span>© <span id="foot-year"></span> TidyInvoice · A SquareGreen project</span>
     <span>Your data stays on your device.</span>
   </footer>
 </section>
@@ -591,6 +610,6 @@
 }
 </script>
 
-<script src="app.js?v=28"></script>
+<script src="app.js?v=29"></script>
 </body>
 </html>
