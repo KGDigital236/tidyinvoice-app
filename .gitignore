@@ -4,3 +4,7 @@ tidyinvoice-documents-*.csv
 Thumbs.db
 desktop.ini
 docs/
+
+# Licence signer private keys — NEVER commit
+tools/license-private.key
+tools/*.key

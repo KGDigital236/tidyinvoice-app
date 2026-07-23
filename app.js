@@ -73,9 +73,10 @@
   // A yearly key just carries a future exp; isPro() enforces it either way, so the
   // pay-once vs subscription choice is a Phase-2 issuance decision, not a code one.
   //
-  // DEV KEY — swap this public key for the production one at Phase 2. The matching
-  // private key lives only in the licence signer and must never enter this repo.
-  var LICENSE_PUBLIC_KEY = "OdjQD_OrOz5fRGgUkktHvPyi5eAiFk_ZD-sYZdj0KKw"; // Ed25519 raw public key, base64url
+  // Production public key. The matching private key lives only in the licence signer
+  // (tools/sign-license.mjs → tools/license-private.key, gitignored) and must never
+  // enter this repo. Rotating it invalidates every previously issued licence.
+  var LICENSE_PUBLIC_KEY = "bZPkqGJuWkawoaHXiffFRfADqG3XqfGHcEdfOzatLUM"; // Ed25519 raw public key, base64url
   var PRO_CHECKOUT_URL = "#"; // Phase 2: Stripe Payment Link
 
   var proState = { pro: false, ready: false, supported: true, exp: null };
