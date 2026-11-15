@@ -27,7 +27,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231e6f50'/%3E%3Cpath d='M9 10h14M9 16h14M9 22h8' stroke='%23f5f2ea' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1e6f50">
-<link rel="stylesheet" href="styles.css?v=30">
+<link rel="stylesheet" href="styles.css?v=32">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -580,17 +580,34 @@
     <h3 class="drawer-license-title">TidyInvoice Pro</h3>
     <p class="drawer-license-state" id="license-state">Free plan</p>
     <div id="license-free">
-      <p class="drawer-license-blurb">Power tools for heavy users — search &amp; filter your documents, bulk export, and reusable templates. Invoicing itself stays free.</p>
+      <p class="drawer-license-blurb">Power tools for heavy users — search &amp; filter your documents, bulk export, and reusable templates. Invoicing itself stays free. Pro is <strong>&euro;25/year</strong>.</p>
+      <button type="button" id="btn-start-trial" class="btn primary license-trial-btn">Start 14-day free trial</button>
       <div class="license-entry">
         <input type="text" id="f-license" placeholder="Paste licence key" autocomplete="off" spellcheck="false">
         <button type="button" id="btn-license-activate" class="btn tiny primary">Activate</button>
       </div>
-      <a class="license-buy" id="license-buy" href="#" target="_blank" rel="noopener" hidden>Get a licence →</a>
+      <a class="license-buy" id="license-buy" href="#" target="_blank" rel="noopener" hidden>Get a licence &rarr;</a>
     </div>
     <div id="license-pro" hidden>
       <button type="button" id="btn-license-remove" class="btn tiny ghost danger">Remove licence</button>
     </div>
     <p class="license-msg" id="license-msg" hidden></p>
+  </div>
+  <div class="drawer-account" id="drawer-account">
+    <h3 class="drawer-license-title">Pro account</h3>
+    <div id="auth-signed-out">
+      <p class="drawer-license-blurb">Sign in to your Pro account by email — no password. Device sync is on the way; signing in doesn't change your plan.</p>
+      <div class="license-entry">
+        <input type="email" id="f-auth-email" placeholder="you@example.com" autocomplete="email" spellcheck="false" inputmode="email">
+        <button type="button" id="btn-auth-send" class="btn tiny primary">Email me a link</button>
+      </div>
+    </div>
+    <div id="auth-signed-in" hidden>
+      <p class="drawer-license-state" data-plan="pro" id="auth-email-label">Signed in</p>
+      <button type="button" id="btn-auth-signout" class="btn tiny ghost">Sign out</button>
+      <p class="auth-soon">Pro billing coming soon.</p>
+    </div>
+    <p class="license-msg" id="auth-msg" hidden></p>
   </div>
 </aside>
 
@@ -613,7 +630,8 @@
   <p class="modal-body" id="upsell-body">A Pro feature.</p>
   <div class="modal-actions">
     <button type="button" class="btn ghost" id="upsell-key">I have a key</button>
-    <a class="btn primary" id="upsell-buy" href="#" target="_blank" rel="noopener">Unlock Pro</a>
+    <button type="button" class="btn primary" id="upsell-trial">Start free trial</button>
+    <a class="btn ghost" id="upsell-buy" href="#" target="_blank" rel="noopener">Unlock Pro</a>
   </div>
 </div>
 
@@ -642,7 +660,8 @@
 
     <div class="faq">
       <h2>Common questions</h2>
-      <details><summary>Is TidyInvoice really free?</summary><p>Yes. The generator is free with no watermark tricks and no locked essentials. If it saves you time, a Pro supporter upgrade with extra templates is planned — but invoicing itself will stay free.</p></details>
+      <details><summary>Is TidyInvoice really free?</summary><p>Yes. Creating invoices, quotes and receipts is free, with no watermark tricks and no locked essentials — and it stays that way. There's an optional Pro upgrade for heavy users, but the core generator is free forever.</p></details>
+      <details><summary>What is TidyInvoice Pro?</summary><p>Pro adds power tools for people managing lots of documents: search and filter your saved documents, bulk export to PDF/CSV, bulk status changes, and reusable templates. It's <strong>&euro;25 a year</strong> with a <strong>14-day free trial</strong> (no card needed to try it). Your licence works offline and is tied to your browser. Everyday invoicing stays free — Pro is only the extras.</p></details>
       <details><summary>Where is my data stored?</summary><p>In your browser's local storage on your own device. Nothing is uploaded. That also means: clear your browser data and it's gone, so download PDFs of anything important.</p></details>
       <details><summary>How do I get a PDF?</summary><p>Click <strong>Download PDF</strong> and choose “Save as PDF” as the destination. Every modern browser has this built in — the document is laid out to fit an A4 page exactly.</p></details>
       <details><summary>Does it work for my country?</summary><p>Yes — pick your currency, set your VAT/GST/sales-tax rates per line (or 0%), and add your own tax number field. Nothing about it is locked to one country.</p></details>
@@ -671,6 +690,6 @@
 }
 </script>
 
-<script src="app.js?v=30"></script>
+<script src="app.js?v=32"></script>
 </body>
 </html>

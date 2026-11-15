@@ -1,0 +1,15 @@
+name = "tidyinvoice-license"
+main = "src/worker.js"
+compatibility_date = "2025-07-01"
+
+[vars]
+# The Stripe Payment Link id for TidyInvoice Pro. Guard: only this link mints a key.
+# Find it in Stripe → Payment links → the link → the id starts with "plink_".
+EXPECTED_PAYMENT_LINK = "plink_1TwVdUFLMjgJoJiXwGU4QwYM"
+
+# Where the buyer goes to paste their key.
+APP_URL = "https://kgdigital236.github.io/tidyinvoice-app/"
+
+# Secrets are NOT set here. Set them once with:
+#   npx wrangler secret put STRIPE_SECRET_KEY
+#   npx wrangler secret put LICENSE_PRIVATE_KEY

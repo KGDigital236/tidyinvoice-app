@@ -12,7 +12,9 @@
     clients: "tidyinvoice_clients",
     draft: "tidyinvoice_draft",
     license: "tidyinvoice_license",
-    templates: "tidyinvoice_templates"
+    templates: "tidyinvoice_templates",
+    trial: "tidyinvoice_trial",
+    session: "tidyinvoice_session" // Pro sign-in (Phase 1a); only written when signed in
   };
 
   var THEMES = {
@@ -79,10 +81,57 @@
   var LICENSE_PUBLIC_KEY = "bZPkqGJuWkawoaHXiffFRfADqG3XqfGHcEdfOzatLUM"; // Ed25519 raw public key, base64url
   var PRO_CHECKOUT_URL = "https://buy.stripe.com/14AaEXfrA6ijfzofau1Nu00"; // Stripe Payment Link
 
+  // ---------- Pro sign-in (Supabase magic-link auth — Phase 1a) ----------
+  // Sign-in ONLY. Being signed in does NOT unlock Pro yet (entitlement is Phase 1b),
+  // so isPro() is untouched. Free / signed-out users fire ZERO network calls: this
+  // module only talks to Supabase when the user submits the sign-in form, when a
+  // magic-link return lands in the URL hash, or when a stored session must refresh.
+  // The publishable (anon) key is public by design — safe in the client. The secret /
+  // service_role key must NEVER appear here.
+  var SUPABASE_URL = "https://tlaexynwiuwemgunvbyx.supabase.co";
+  var SUPABASE_ANON_KEY = "sb_publishable_j9f0V6wI8wQoCqsVSoTX9g_aH1dxsag";
+  // Session shape: { access_token, refresh_token, expires_at (ms epoch), email }.
+  var authState = { session: null };
+
   var proState = { pro: false, ready: false, supported: true, exp: null };
 
-  // Cached per page load: gated UI reads this synchronously after initEntitlement resolves.
-  function isPro() { return isDemo || proState.pro; }
+  // ---------- free trial (client-side, no backend) ----------
+  // A 14-day Pro trial with no card and no key. Only a start timestamp is stored; nothing
+  // is signed or verified. It is deliberately simple and therefore resettable (clear
+  // storage / private window / reinstall) — an accepted trade for a low-price tool; the
+  // sole tamper-proof alternative is a backend, which would defeat the offline design.
+  // One trial per browser: once started (or lapsed) the offer does not come back.
+  var TRIAL_DAYS = 14;
+  var TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
+  // { used, active, daysLeft } — read live (localStorage) so it can't go stale mid-session.
+  function trialInfo() {
+    if (isDemo) return { used: false, active: false, daysLeft: 0 };
+    var raw = null;
+    try { raw = localStorage.getItem(LS.trial); } catch (e) {}
+    if (!raw) return { used: false, active: false, daysLeft: 0 };
+    var start = parseInt(raw, 10);
+    if (!start) return { used: true, active: false, daysLeft: 0 }; // corrupt = treat as spent
+    var left = start + TRIAL_MS - Date.now();
+    if (left <= 0) return { used: true, active: false, daysLeft: 0 };
+    return { used: true, active: true, daysLeft: Math.ceil(left / 86400000) };
+  }
+  function trialActive() { return trialInfo().active; }
+  // Begin the trial. Returns true if it started, false if unavailable (demo / already used).
+  function startTrial() {
+    if (isDemo) return false;
+    if (trialInfo().used) return false;
+    try { localStorage.setItem(LS.trial, String(Date.now())); }
+    catch (e) { return false; }
+    applyProState();
+    renderLicense();
+    return true;
+  }
+
+  // Cached per page load for the licence; the trial is evaluated live. A real licence
+  // always wins; the trial only unlocks Pro when no licence is present. Because gated
+  // clicks call isPro() live, an expired trial stops working immediately even if the
+  // page has been open past day 14 (the <body data-pro> stamp only refreshes on reload).
+  function isPro() { return isDemo || proState.pro || trialActive(); }
 
   function b64urlToBytes(s) {
     s = String(s).replace(/-/g, "+").replace(/_/g, "/");
@@ -1110,7 +1159,9 @@
   function openHistory() {
     renderHistory();
     renderLicense();
+    renderAuth();
     licenseMsg(""); // clear any stale message from a previous open
+    authMsg("");
     $("history-drawer").hidden = false;
     $("drawer-backdrop").hidden = false;
   }
@@ -1141,21 +1192,34 @@
     var buy = $("license-buy");
     if (buy) buy.hidden = (PRO_CHECKOUT_URL === "#"); // hide the dead link until Phase 2 sets the URL
     if (buy) buy.href = PRO_CHECKOUT_URL;
-    var pro = isPro();
-    $("license-pro").hidden = !pro || isDemo; // nothing stored to remove in demo
-    $("license-free").hidden = pro;
-    if (pro) {
+
+    var hasLicense = proState.pro; // a real, stored, verified licence (not trial/demo)
+    var t = trialInfo();
+
+    // Remove-licence row only when there is a real licence to remove.
+    $("license-pro").hidden = !hasLicense || isDemo;
+    // Entry block (activate + buy + start-trial) stays visible to Free AND trial users,
+    // so a trialing user can still buy or paste a key. Hidden only for a real licence/demo.
+    $("license-free").hidden = hasLicense || isDemo;
+    // Start-trial button: offered only when a trial is genuinely still available.
+    var trialBtn = $("btn-start-trial");
+    if (trialBtn) trialBtn.hidden = hasLicense || isDemo || t.used;
+
+    if (hasLicense || isDemo) {
       stateEl.dataset.plan = "pro";
       if (isDemo) stateEl.textContent = "Pro — demo mode";
       else if (proState.exp) stateEl.textContent = "Pro — active until " + fmtDate(isoFromUnix(proState.exp));
       else stateEl.textContent = "Pro — active";
+    } else if (t.active) {
+      stateEl.dataset.plan = "pro";
+      stateEl.textContent = "Pro trial — " + t.daysLeft + (t.daysLeft === 1 ? " day left" : " days left");
     } else {
       stateEl.dataset.plan = "free";
       var hasKey = false;
       try { hasKey = !!localStorage.getItem(LS.license); } catch (e) {}
       stateEl.textContent = (hasKey && !proState.supported)
         ? "Free — this browser can't verify licences"
-        : "Free plan";
+        : (t.used ? "Free plan — trial ended" : "Free plan");
     }
   }
   $("btn-license-activate").addEventListener("click", function () {
@@ -1191,6 +1255,163 @@
     renderLicense();
     licenseMsg("Licence removed — back to the free plan.", "info");
   });
+  var btnStartTrial = $("btn-start-trial");
+  if (btnStartTrial) btnStartTrial.addEventListener("click", function () {
+    if (startTrial()) licenseMsg("Pro trial started — " + TRIAL_DAYS + " days. Enjoy!", "ok");
+    else licenseMsg("Your free trial has already been used on this browser.", "err");
+  });
+
+  // ---------- Pro sign-in UI + auth (Phase 1a) ----------
+  function authMsg(text, kind) {
+    var el = $("auth-msg");
+    if (!el) return;
+    if (!text) { el.hidden = true; el.textContent = ""; return; }
+    el.hidden = false;
+    el.textContent = text;
+    el.dataset.kind = kind || "info";
+  }
+  function loadSession() {
+    try { var raw = localStorage.getItem(LS.session); return raw ? JSON.parse(raw) : null; }
+    catch (e) { return null; }
+  }
+  function saveSession(s) {
+    try { localStorage.setItem(LS.session, JSON.stringify(s)); } catch (e) { /* quota — non-fatal */ }
+  }
+  function clearSession() {
+    try { localStorage.removeItem(LS.session); } catch (e) {}
+  }
+  function renderAuth() {
+    if (!$("drawer-account")) return;
+    var s = authState.session;
+    var signedIn = !!(s && s.access_token);
+    $("auth-signed-out").hidden = signedIn;
+    $("auth-signed-in").hidden = !signedIn;
+    if (signedIn) $("auth-email-label").textContent = "Signed in as " + (s.email || "your Pro account");
+  }
+  // GET the current user to resolve the email the tokens belong to. Never throws.
+  function fetchUserEmail(token) {
+    return fetch(SUPABASE_URL + "/auth/v1/user", {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + token }
+    }).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { return j && j.email ? j.email : ""; })
+      .catch(function () { return ""; });
+  }
+  // Fill in the email for a freshly stored session, then refresh the drawer UI.
+  function confirmUser() {
+    var s = authState.session;
+    if (!s || !s.access_token) return;
+    fetchUserEmail(s.access_token).then(function (email) {
+      if (email && authState.session === s) { s.email = email; saveSession(s); }
+      renderAuth();
+    });
+  }
+  // Exchange a refresh token for a fresh session. Resolves true on success.
+  function refreshSession(s) {
+    if (!s || !s.refresh_token) return Promise.resolve(false);
+    return fetch(SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token", {
+      method: "POST",
+      headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: s.refresh_token })
+    }).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || !j.access_token) return false;
+        var ns = {
+          access_token: j.access_token,
+          refresh_token: j.refresh_token || s.refresh_token,
+          expires_at: Date.now() + (parseInt(j.expires_in, 10) || 3600) * 1000,
+          email: (j.user && j.user.email) || s.email || ""
+        };
+        saveSession(ns);
+        authState.session = ns;
+        return true;
+      })
+      .catch(function () { return false; });
+  }
+  // Handle a magic-link return in the URL hash. Returns true if the hash was an auth
+  // payload (token or error) and consumed it. Share links (#d=) are left untouched.
+  function parseAuthHash() {
+    var h = location.hash || "";
+    if (h.indexOf("access_token=") < 0 && h.indexOf("error=") < 0) return false;
+    var params = {};
+    h.replace(/^#/, "").split("&").forEach(function (kv) {
+      var i = kv.indexOf("=");
+      if (i > 0) params[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1).replace(/\+/g, " "));
+    });
+    var strip = function () { if (history.replaceState) history.replaceState(null, "", location.pathname + location.search); };
+    if (params.error || !params.access_token) {
+      strip();
+      authState.session = null;
+      renderAuth();
+      authMsg(params.error_description || "That sign-in link didn't work — request a new one.", "err");
+      return true;
+    }
+    var sess = {
+      access_token: params.access_token,
+      refresh_token: params.refresh_token || "",
+      expires_at: Date.now() + (parseInt(params.expires_in, 10) || 3600) * 1000,
+      email: ""
+    };
+    saveSession(sess);
+    authState.session = sess;
+    strip();
+    renderAuth();
+    confirmUser(); // resolve the email for the "Signed in as …" label
+    return true;
+  }
+  // Boot: consume any magic-link return, else restore + refresh a stored session.
+  function initAuth() {
+    if (isDemo) return; // demo never touches auth
+    if (parseAuthHash()) return; // just came back from a magic link (or an error)
+    var s = loadSession();
+    if (!s || !s.access_token) { renderAuth(); return; } // signed out — no network
+    authState.session = s;
+    if (s.expires_at && Date.now() > s.expires_at) {
+      refreshSession(s).then(function (ok) {
+        if (!ok) { clearSession(); authState.session = null; } // refresh failed = signed out
+        renderAuth();
+      });
+    } else {
+      renderAuth();
+    }
+  }
+  var btnAuthSend = $("btn-auth-send");
+  if (btnAuthSend) btnAuthSend.addEventListener("click", function () {
+    var email = ($("f-auth-email").value || "").trim();
+    if (!email || email.indexOf("@") < 1 || email.indexOf(".") < 0) {
+      authMsg("Enter a valid email address.", "err");
+      return;
+    }
+    authMsg("Sending…", "info");
+    var redirect = location.origin + location.pathname;
+    fetch(SUPABASE_URL + "/auth/v1/otp?redirect_to=" + encodeURIComponent(redirect), {
+      method: "POST",
+      headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, create_user: true })
+    }).then(function (r) {
+      if (r.ok) { authMsg("Check your email for a sign-in link.", "ok"); return; }
+      if (r.status === 429) { authMsg("Too many requests — wait a minute, then try again.", "err"); return; }
+      return r.json().catch(function () { return null; }).then(function (j) {
+        authMsg((j && (j.msg || j.error_description || j.error)) || "Couldn't send the link — check the address and try again.", "err");
+      });
+    }).catch(function () {
+      authMsg("Network error — check your connection and try again.", "err");
+    });
+  });
+  var btnAuthSignout = $("btn-auth-signout");
+  if (btnAuthSignout) btnAuthSignout.addEventListener("click", function () {
+    var s = authState.session;
+    if (s && s.access_token) {
+      // best-effort server-side logout; don't block the UI on it
+      fetch(SUPABASE_URL + "/auth/v1/logout", {
+        method: "POST",
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + s.access_token, "Content-Type": "application/json" }
+      }).catch(function () {});
+    }
+    clearSession();
+    authState.session = null;
+    renderAuth();
+    authMsg("Signed out.", "info");
+  });
 
   // ---------- Pro upsell (A3) ----------
   // One compact, dismissible modal shared by every gated control. After the user
@@ -1205,10 +1426,15 @@
   // Show the upsell for a gated feature. `feature` is a single plain-English line.
   // Returns true if it opened, false if suppressed (Pro, or already dismissed).
   function openUpsell(feature) {
-    if (isPro()) return false;         // never upsell someone who already has Pro
+    if (isPro()) return false;         // never upsell someone who already has Pro (incl. trial)
     if (upsellDismissed) return false; // respected their dismiss for this session
     $("upsell-body").textContent = feature || "This is a Pro feature.";
     $("upsell-buy").href = PRO_CHECKOUT_URL; // opens the Stripe checkout in a new tab
+    // Trial is the low-friction path when still available; once spent, promote Buy instead.
+    var used = trialInfo().used;
+    var trialBtn = $("upsell-trial");
+    if (trialBtn) trialBtn.hidden = used;
+    $("upsell-buy").className = used ? "btn primary" : "btn ghost";
     $("upsell-backdrop").hidden = false;
     $("upsell-modal").hidden = false;
     return true;
@@ -1224,6 +1450,14 @@
   }
   $("upsell-buy").addEventListener("click", function () {
     dismissUpsell(); // the anchor opens checkout in a new tab; don't re-prompt this session
+  });
+  var upsellTrialBtn = $("upsell-trial");
+  if (upsellTrialBtn) upsellTrialBtn.addEventListener("click", function () {
+    if (startTrial()) {
+      upsellDismissed = true; // they've chosen the trial; don't re-prompt this session
+      closeUpsell();
+      toast("Pro trial started — " + TRIAL_DAYS + " days. Enjoy!");
+    }
   });
   $("upsell-key").addEventListener("click", function () {
     dismissUpsell();
@@ -2437,6 +2671,7 @@
   applyUITheme();
   enhanceSteppers();
   initEntitlement(); // offline Pro-licence check; stamps <body data-pro>, fails safe to free
+  initAuth(); // Pro sign-in (Phase 1a): consume magic-link return / restore session. No-op when signed out.
   $("foot-year").textContent = new Date().getFullYear();
   if (isDemo) {
     var note = $("autosave-note");

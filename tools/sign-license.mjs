@@ -12,8 +12,9 @@
 //
 // Usage:
 //   node tools/sign-license.mjs keygen [--force]
-//   node tools/sign-license.mjs sign --email <e> --tier pro [--exp <ISO date | none>]
+//   node tools/sign-license.mjs sign --email <e> --tier pro [--exp <ISO date | Ny | none>]
 //
+// For the €25/year model the manual fallback is:  --exp 1y  (one year from today).
 // keygen prints the raw base64url PUBLIC key to stdout (paste into app.js
 // LICENSE_PUBLIC_KEY) and writes the PRIVATE key to tools/license-private.key.
 // That file is gitignored and must never be committed.
@@ -70,8 +71,16 @@ function sign(flags) {
   const payload = { email, tier };
   const exp = flags.exp;
   if (exp !== undefined && exp !== "none") {
-    const ms = Date.parse(exp);
-    if (Number.isNaN(ms)) die('--exp must be an ISO date (e.g. 2027-01-31) or "none".');
+    const yearShort = /^(\d+)y$/.exec(String(exp)); // "1y" = one year from now (the €25/year default)
+    let ms;
+    if (yearShort) {
+      const d = new Date();
+      d.setFullYear(d.getFullYear() + parseInt(yearShort[1], 10));
+      ms = d.getTime();
+    } else {
+      ms = Date.parse(exp);
+    }
+    if (Number.isNaN(ms)) die('--exp must be an ISO date (e.g. 2027-01-31), "<N>y" (e.g. 1y), or "none".');
     payload.exp = Math.floor(ms / 1000); // unix seconds; the app compares against Date.now()/1000
   }
   // exp omitted entirely for a one-time unlock — verifyLicense treats absent/null as no expiry.
@@ -90,6 +99,6 @@ else if (cmd === "sign") sign(flags);
 else {
   console.error("usage:");
   console.error("  node tools/sign-license.mjs keygen [--force]");
-  console.error("  node tools/sign-license.mjs sign --email <e> --tier pro [--exp <ISO date | none>]");
+  console.error("  node tools/sign-license.mjs sign --email <e> --tier pro [--exp <ISO date | Ny | none>]");
   process.exit(1);
 }
